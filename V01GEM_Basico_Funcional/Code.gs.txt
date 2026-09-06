@@ -1,0 +1,293 @@
+/*******************************************************
+ * KUDOS - SISTEMA DE RECONOCIMIENTOS CORPORATIVO
+ * Arquitecto de Software / GAS
+ *******************************************************/
+
+const CONFIG = {
+  APP_NAME: 'Kudos Corporativo',
+  SHEETS: {
+    PERSONAL: 'Personal',          // Pestaña de administración de usuarios
+    RECOGNITIONS: 'Recognitions',
+    CATEGORIES: 'Categories',
+    MESSAGES: 'Messages'
+  },
+  DEFAULT_PHOTO: 'https://via.placeholder.com/300x300.png?text=Usuario',
+  MAX_MESSAGE_LENGTH: 500,
+  DATE_FORMAT: 'dd/MM/yyyy HH:mm',
+  COLORS: {
+    PRIMARY: '#911234', // Rojo corporativo
+    SECONDARY: '#161A31', // Azul oscuro
+    BACKGROUND: '#FCFCFC' // Blanco base
+  }
+};
+
+/**
+ * Punto de entrada de la aplicación web
+ */
+function doGet() {
+  return HtmlService
+    .createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle(CONFIG.APP_NAME)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Obtiene todas las personas activas (Para el Modal de felicitación)
+ */
+function getPeople() {
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(person => {
+      // Verificación de alta/baja
+      return person.Active === undefined || person.Active === '' || person.Active === true || String(person.Active).toUpperCase() === 'TRUE';
+    })
+    .map(person => ({
+      id: person.ID_Person,
+      name: person.Name,
+      email: person.Email,
+      department: person.Department,
+      photoUrl: person.Photo_URL || CONFIG.DEFAULT_PHOTO,
+      jobTitle: person.Job_Title || '',
+      recognitions: Number(person.Contador_Felicitaciones) || 0
+    }));
+}
+
+/**
+ * Obtiene las categorías activas
+ */
+function getCategories() {
+  const sheet = getSheet(CONFIG.SHEETS.CATEGORIES);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(item => String(item.Active).toUpperCase() !== 'FALSE')
+    .map(item => ({
+      id: item.Category_ID,
+      name: item.Category,
+      emoji: item.Emoji || '⭐',
+      description: item.Description || ''
+    }));
+}
+
+/**
+ * Obtiene información inicial procesada para el frontend
+ */
+function getAppData() {
+  const people = getPeople();
+  const categories = getCategories();
+  const recognitions = getRecentRecognitions(999999);
+  
+  const now = new Date();
+  let thisMonthCount = 0;
+  
+  const personMonthCounts = {};
+  const deptCounts = {};
+  
+  // Procesamiento matemático e iteración de datos de uso (Tops)
+  recognitions.forEach(r => {
+    const dept = r.department || 'Sin Departamento';
+    deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+    
+    const date = new Date(r.timestamp);
+    if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+      thisMonthCount++;
+      personMonthCounts[r.toId] = (personMonthCounts[r.toId] || 0) + 1;
+    }
+  });
+
+  // Top 3 de personas por total general
+  const topPeople = [...people]
+    .sort((a, b) => b.recognitions - a.recognitions)
+    .slice(0, 3)
+    .map(p => ({
+      name: p.name,
+      photoUrl: p.photoUrl,
+      department: p.department,
+      recognitions: p.recognitions,
+      monthRecognitions: personMonthCounts[p.id] || 0
+    }));
+    
+  // Top 3 departamentos
+  const topDepartments = Object.keys(deptCounts)
+    .map(dept => ({ department: dept, count: deptCounts[dept] }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+    
+  // Departamentos únicos para el filtro
+  const departments = [...new Set(people.map(p => p.department).filter(Boolean))].sort();
+
+  return {
+    appName: CONFIG.APP_NAME,
+    people: people,
+    categories: categories,
+    departments: departments,
+    stats: {
+      total: recognitions.length,
+      thisMonth: thisMonthCount,
+      peopleRecognized: people.filter(p => p.recognitions > 0).length,
+      topPeople: topPeople,
+      topDepartments: topDepartments
+    }
+  };
+}
+
+/**
+ * Crea un reconocimiento y envía la notificación por correo
+ */
+function createRecognition(data) {
+  if (!data || !data.personId || !data.categoryId || !data.message) {
+    throw new Error('Datos incompletos.');
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.RECOGNITIONS);
+    const people = getPeople();
+    
+    const person = people.find(p => String(p.id) === String(data.personId));
+    if (!person) throw new Error('La persona seleccionada no existe.');
+
+    const categories = getCategories();
+    const category = categories.find(c => String(c.id) === String(data.categoryId));
+    if (!category) throw new Error('La categoría seleccionada no existe.');
+
+    const recognitionId = 'REC-' + new Date().getTime() + '-' + Math.floor(Math.random() * 999);
+    
+    // Identificar al usuario que felicita buscando en el sistema o tomando su email
+    const userEmail = Session.getActiveUser().getEmail();
+    let userName = userEmail || 'Usuario del Sistema';
+    const activeUserObj = people.find(p => String(p.email).toLowerCase() === String(userEmail).toLowerCase());
+    if (activeUserObj) {
+      userName = activeUserObj.name;
+    }
+
+    const now = new Date();
+
+    // Inserción en la DB
+    sheet.appendRow([
+      recognitionId,
+      now,
+      userEmail,
+      userName,
+      person.id,
+      person.name,
+      person.department,
+      category.id,
+      category.name,
+      data.message.trim()
+    ]);
+
+    updatePersonCounter(person.id);
+    
+    // Enviar notificación corporativa por correo
+    sendEmailNotification(person, userName, category, data.message.trim());
+
+    return {
+      success: true,
+      personName: person.name
+    };
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Envío de correo electrónico HTML con botón
+ */
+function sendEmailNotification(person, userName, category, message) {
+  try {
+    const systemUrl = ScriptApp.getService().getUrl();
+    const subject = "🎉 ¡Has recibido un reconocimiento!";
+    
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; color: ${CONFIG.COLORS.SECONDARY}; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: ${CONFIG.COLORS.BACKGROUND};">
+        <h2 style="color: ${CONFIG.COLORS.PRIMARY}; text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px;">¡Has recibido un reconocimiento! 🎉</h2>
+        <p style="font-size: 16px;">Hola <strong>${person.name}</strong>,</p>
+        <p style="font-size: 16px;"><strong>${userName}</strong> te reconoció por:</p>
+        
+        <div style="background-color: #ffffff; padding: 20px; border-left: 5px solid ${CONFIG.COLORS.PRIMARY}; margin: 25px 0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <h3 style="margin-top: 0; color: ${CONFIG.COLORS.SECONDARY}; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 24px;">${category.emoji}</span> ${category.name}
+          </h3>
+          <p style="font-style: italic; font-size: 15px; color: #475569; line-height: 1.5;">"${message}"</p>
+        </div>
+        
+        <p style="text-align: center; font-size: 15px;">¡Gracias por hacer la diferencia en nuestro equipo!</p>
+        
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="${systemUrl}" style="background-color: ${CONFIG.COLORS.PRIMARY}; color: ${CONFIG.COLORS.BACKGROUND}; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block;">Visualizar en el Sistema</a>
+        </div>
+      </div>
+    `;
+    
+    MailApp.sendEmail({
+      to: person.email,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+  } catch (e) {
+    console.error("No se pudo enviar el correo: " + e.message);
+  }
+}
+
+/**
+ * Incrementa contador maestro en Google Sheets
+ */
+function updatePersonCounter(personId) {
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('ID_Person');
+  const countCol = headers.indexOf('Contador_Felicitaciones');
+
+  if (idCol === -1 || countCol === -1) return;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(personId)) {
+      const current = Number(data[i][countCol]) || 0;
+      sheet.getRange(i + 1, countCol + 1).setValue(current + 1);
+      return;
+    }
+  }
+}
+
+/**
+ * Funciones de soporte técnico
+ */
+function getRecentRecognitions(limit = 10) {
+  const sheet = getSheet(CONFIG.SHEETS.RECOGNITIONS);
+  if (sheet.getLastRow() <= 1) return [];
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  return values.map(row => rowToObject(headers, row)).reverse().slice(0, limit)
+    .map(item => ({
+      id: item.Recognition_ID, timestamp: item.Timestamp, fromName: item.From_Name,
+      toId: item.To_ID, toName: item.To_Name, department: item.Department,
+      category: item.Category, message: item.Message
+    }));
+}
+
+function rowToObject(headers, row) {
+  const obj = {};
+  headers.forEach((h, i) => obj[h] = row[i]);
+  return obj;
+}
+
+function getSheet(name) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  if (!sheet) throw new Error(`No existe la hoja "${name}".`);
+  return sheet;
+}
