@@ -1,0 +1,322 @@
+/*******************************************************
+ * KUDOS V2 - SISTEMA DE RECONOCIMIENTOS
+ * Arquitectura Modular
+ *******************************************************/
+
+// ==========================================
+// CONFIGURACIÓN CENTRAL
+// ==========================================
+const CONFIG = {
+  APP_NAME: 'Sistema de Felicitaciones V2',
+  SHEETS: {
+    PERSONAL: 'Personal',
+    RECOGNITIONS: 'Recognitions',
+    CATEGORIES: 'Categories',
+    MESSAGES: 'Messages',
+    CONFIG: 'Config'
+  },
+  DEFAULT_PHOTO: 'https://ui-avatars.com/api/?background=random&color=fff&name=',
+  MAX_MESSAGE_LENGTH: 500,
+  DATE_FORMAT: 'dd/MM/yyyy HH:mm',
+  COLORS: {
+    PRIMARY: '#911234',
+    SECONDARY: '#161A31',
+    BACKGROUND: '#FCFCFC'
+  }
+};
+
+// ==========================================
+// PUNTO DE ENTRADA (WEB APP)
+// ==========================================
+function doGet() {
+  return HtmlService
+    .createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle(CONFIG.APP_NAME)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// ==========================================
+// SEGURIDAD Y SESIÓN
+// ==========================================
+function getCurrentUser() {
+  const email = Session.getActiveUser().getEmail();
+  if (!email) return null; // Entornos donde no se expone el correo
+  
+  const people = getPeople(false); // Obtener todos para buscar
+  const user = people.find(p => p.email.toLowerCase() === email.toLowerCase());
+  
+  if (!user || !user.active) {
+    return { email: email, authorized: false, isAdmin: false };
+  }
+  
+  return { 
+    ...user, 
+    authorized: true 
+  };
+}
+
+// ==========================================
+// LECTURA DE DATOS
+// ==========================================
+function getPeople(onlyActive = true) {
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(person => {
+      if (!onlyActive) return true;
+      return String(person.Active).toUpperCase() !== 'FALSE';
+    })
+    .map(person => ({
+      id: person.ID_Person,
+      name: person.Name,
+      email: person.Email,
+      department: person.Department,
+      photoUrl: person.Photo_URL || (CONFIG.DEFAULT_PHOTO + encodeURIComponent(person.Name)),
+      jobTitle: person.Job_Title || '',
+      recognitions: Number(person.Contador_Felicitaciones) || 0,
+      active: String(person.Active).toUpperCase() !== 'FALSE',
+      isAdmin: String(person.Is_Admin).toUpperCase() === 'TRUE'
+    }));
+}
+
+function getCategories() {
+  const sheet = getSheet(CONFIG.SHEETS.CATEGORIES);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(item => String(item.Active).toUpperCase() !== 'FALSE')
+    .map(item => ({
+      id: item.Category_ID,
+      name: item.Category,
+      emoji: item.Emoji || '⭐',
+      description: item.Description || ''
+    }));
+}
+
+function getMessages(categoryId) {
+  const sheet = getSheet(CONFIG.SHEETS.MESSAGES);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(item => String(item.Active).toUpperCase() !== 'FALSE')
+    .filter(item => !categoryId || String(item.Category_ID) === String(categoryId))
+    .map(item => ({
+      id: item.Message_ID,
+      message: item.Message
+    }));
+}
+
+function getAllRecognitions() {
+  const sheet = getSheet(CONFIG.SHEETS.RECOGNITIONS);
+  if (sheet.getLastRow() <= 1) return [];
+  
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  
+  return values.map(row => rowToObject(headers, row));
+}
+
+// ==========================================
+// LÓGICA DE NEGOCIO Y DASHBOARD
+// ==========================================
+function getAppData() {
+  const currentUser = getCurrentUser();
+  if (currentUser && !currentUser.authorized) {
+    throw new Error('Usuario no autorizado o inactivo.');
+  }
+
+  const people = getPeople(); // Personas activas para felicitar
+  const categories = getCategories();
+  const allRecognitions = getAllRecognitions();
+  
+  // Regla 1: Top 3 personas (Solo con >= 1 reconocimiento)
+  const topPeople = [...people]
+    .filter(p => p.recognitions > 0)
+    .sort((a, b) => b.recognitions - a.recognitions)
+    .slice(0, 3);
+    
+  // Top 3 Departamentos
+  const deptCounts = {};
+  allRecognitions.forEach(rec => {
+    deptCounts[rec.Department] = (deptCounts[rec.Department] || 0) + 1;
+  });
+  
+  const topDepartments = Object.keys(deptCounts)
+    .map(dept => ({ department: dept, count: deptCounts[dept] }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  // Estadísticas generales
+  const now = new Date();
+  const thisMonthCount = allRecognitions.filter(item => {
+    const date = new Date(item.Timestamp);
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }).length;
+
+  return {
+    currentUser: currentUser || { name: 'Usuario' },
+    people: people,
+    categories: categories,
+    dashboard: {
+      topPeople: topPeople,
+      topDepartments: topDepartments,
+      stats: {
+        total: allRecognitions.length,
+        thisMonth: thisMonthCount,
+        peopleRecognized: people.filter(p => p.recognitions > 0).length
+      }
+    }
+  };
+}
+
+// ==========================================
+// CREACIÓN Y NOTIFICACIÓN
+// ==========================================
+function createRecognition(data) {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.authorized) {
+    throw new Error('No tienes permisos para realizar esta acción.');
+  }
+
+  validateRecognition(data);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.RECOGNITIONS);
+    const person = getPeople().find(p => String(p.id) === String(data.personId));
+    if (!person) throw new Error('El destinatario no existe o está inactivo.');
+
+    const category = getCategories().find(c => String(c.id) === String(data.categoryId));
+    if (!category) throw new Error('La categoría no existe.');
+
+    const recognitionId = 'REC-' + new Date().getTime();
+    const now = new Date();
+
+    // Regla 3: Remitente automático
+    sheet.appendRow([
+      recognitionId,
+      now,
+      currentUser.email,
+      currentUser.name,
+      person.id,
+      person.name,
+      person.department,
+      category.id,
+      category.name,
+      data.message.trim()
+    ]);
+
+    updatePersonCounter(person.id);
+    
+    // Regla 4: Notificación por correo
+    sendNotificationEmail(person, currentUser, category, data.message.trim());
+
+    return {
+      success: true,
+      personName: person.name,
+      category: category.name
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function validateRecognition(data) {
+  if (!data || !data.personId || !data.categoryId || !data.message || !data.message.trim()) {
+    throw new Error('Datos incompletos.');
+  }
+  if (data.message.trim().length > CONFIG.MAX_MESSAGE_LENGTH) {
+    throw new Error(`El mensaje no puede superar ${CONFIG.MAX_MESSAGE_LENGTH} caracteres.`);
+  }
+}
+
+function updatePersonCounter(personId) {
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('ID_Person');
+  const countCol = headers.indexOf('Contador_Felicitaciones');
+  
+  if (idCol === -1 || countCol === -1) return;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(personId)) {
+      const current = Number(data[i][countCol]) || 0;
+      sheet.getRange(i + 1, countCol + 1).setValue(current + 1);
+      return;
+    }
+  }
+}
+
+function sendNotificationEmail(toPerson, fromPerson, category, message) {
+  if (!toPerson.email) return;
+  
+  // Intentar obtener URL de configuración si existe
+  let appUrl = 'https://script.google.com/'; 
+  try {
+    const configSheet = getSheet(CONFIG.SHEETS.CONFIG);
+    const configData = configSheet.getDataRange().getValues();
+    const urlRow = configData.find(row => row[0] === 'APP_URL');
+    if (urlRow) appUrl = urlRow[1];
+  } catch(e) {}
+
+  const subject = `🎉 ¡Has recibido un reconocimiento de ${fromPerson.name}!`;
+  
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+      <h2 style="color: ${CONFIG.COLORS.PRIMARY};">¡Felicidades, ${toPerson.name}! 🎉</h2>
+      <p style="font-size: 16px; color: #333;"><strong>${fromPerson.name}</strong> te ha reconocido por:</p>
+      
+      <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${CONFIG.COLORS.PRIMARY};">
+        <h3 style="margin-top: 0; color: ${CONFIG.COLORS.SECONDARY};">${category.emoji} ${category.name}</h3>
+        <p style="font-style: italic; font-size: 16px; color: #555;">"${message}"</p>
+      </div>
+      
+      <p style="font-size: 14px; color: #666;">¡Gracias por hacer la diferencia en nuestro equipo!</p>
+      
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="${appUrl}" style="background-color: ${CONFIG.COLORS.PRIMARY}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ver en el Sistema</a>
+      </div>
+    </div>
+  `;
+
+  try {
+    MailApp.sendEmail({
+      to: toPerson.email,
+      subject: subject,
+      htmlBody: htmlBody,
+      name: 'Sistema de Reconocimientos'
+    });
+  } catch (e) {
+    console.error("Error al enviar correo: " + e.toString());
+  }
+}
+
+// ==========================================
+// UTILIDADES
+// ==========================================
+function rowToObject(headers, row) {
+  const obj = {};
+  headers.forEach((header, index) => { obj[header] = row[index]; });
+  return obj;
+}
+
+function getSheet(name) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  if (!sheet) throw new Error(`No existe la hoja "${name}".`);
+  return sheet;
+}

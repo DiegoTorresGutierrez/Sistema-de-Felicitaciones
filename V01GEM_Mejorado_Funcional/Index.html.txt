@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kudos V2</title>
+  <style>
+    :root {
+      --primary: #911234;
+      --secondary: #161A31;
+      --bg: #FCFCFC;
+      --card: #ffffff;
+      --text: #333333;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background-color: var(--bg); color: var(--text); }
+    
+    /* Header Corporativo */
+    header {
+      background-color: var(--secondary);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .user-profile { font-size: 14px; opacity: 0.9; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    
+    /* Dashboard Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    @media(max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+    .card-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    .card-panel h2 { margin-top: 0; color: var(--primary); font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;}
+
+    /* Podio Top 3 */
+    .podium { display: flex; justify-content: center; align-items: flex-end; gap: 16px; height: 180px; margin-top: 20px;}
+    .podium-item { display: flex; flex-direction: column; align-items: center; text-align: center; width: 30%; }
+    .podium-item img { width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; margin-bottom: 8px;}
+    .podium-item .rank-bar { width: 100%; background-color: var(--primary); border-radius: 8px 8px 0 0; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: height 0.3s;}
+    .podium-item.rank-1 .rank-bar { height: 80px; background-color: #911234; }
+    .podium-item.rank-2 .rank-bar { height: 60px; background-color: #a8294a; }
+    .podium-item.rank-3 .rank-bar { height: 40px; background-color: #c04564; }
+    .podium-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;}
+    
+    /* Top Deptos */
+    .dept-list { list-style: none; padding: 0; margin: 0; }
+    .dept-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px;}
+    .dept-item:last-child { border-bottom: none; }
+    .dept-count { font-weight: bold; color: var(--primary); background: #fdf2f8; padding: 4px 12px; border-radius: 20px;}
+
+    /* Stats Rápidas */
+    .stats-container { display: flex; gap: 16px; margin-top: 16px;}
+    .stat-mini { flex: 1; background: #f8fafc; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid var(--border);}
+    .stat-mini strong { display: block; font-size: 24px; color: var(--secondary); margin-bottom: 4px;}
+    .stat-mini span { font-size: 12px; color: var(--muted); }
+
+    /* Filtros y Buscador */
+    .controls { display: flex; gap: 16px; margin-bottom: 24px; }
+    .search-input, .filter-select {
+      padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 14px;
+    }
+    .search-input { flex: 1; }
+    .search-input:focus, .filter-select:focus { border-color: var(--primary); }
+
+    /* Grid de Personas (Selector) */
+    .section-title { font-size: 20px; color: var(--secondary); margin-bottom: 16px;}
+    .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .person-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .person-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--primary); }
+    .person-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 12px; border: 2px solid #f1f5f9; }
+    .person-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--secondary);}
+    .person-dept { font-size: 12px; color: var(--muted); margin-bottom: 12px;}
+    .btn-felicitar { background: white; color: var(--primary); border: 1px solid var(--primary); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;}
+    .person-card:hover .btn-felicitar { background: var(--primary); color: white; }
+
+    /* Modal */
+    .overlay { position: fixed; inset: 0; background: rgba(22, 26, 49, 0.6); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px);}
+    .modal { background: white; width: 100%; max-width: 550px; border-radius: var(--radius); padding: 32px; max-height: 90vh; overflow-y: auto; position: relative;}
+    .modal-close { position: absolute; top: 24px; right: 24px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--muted); }
+    
+    .modal-target { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 8px;}
+    .modal-target img { width: 50px; height: 50px; border-radius: 50%; }
+    .modal-target h3 { margin: 0 0 4px 0; font-size: 16px;}
+    .modal-target p { margin: 0; font-size: 13px; color: var(--muted);}
+
+    .category-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;}
+    .cat-item { border: 1px solid var(--border); border-radius: 8px; padding: 12px 8px; text-align: center; cursor: pointer; transition: 0.2s;}
+    .cat-item:hover { border-color: var(--primary); background: #fdf2f8; }
+    .cat-item.active { border-color: var(--primary); background: #fdf2f8; box-shadow: 0 0 0 1px var(--primary);}
+    .cat-emoji { font-size: 24px; display: block; margin-bottom: 4px;}
+    .cat-name { font-size: 11px; font-weight: 600; color: var(--secondary);}
+
+    textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; resize: vertical; margin-bottom: 20px; font-family: inherit;}
+    textarea:focus { outline: none; border-color: var(--primary); }
+
+    .btn-submit { width: 100%; background: var(--primary); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;}
+    .btn-submit:hover { background: #7a0f2b; }
+    .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
+
+    /* Utils */
+    .loading-screen { text-align: center; padding: 60px; color: var(--muted); font-size: 18px;}
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--secondary); color: white; padding: 16px 24px; border-radius: 8px; display: none; z-index: 1000; box-shadow: var(--shadow);}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Kudos</h1>
+  </div>
+  <div class="user-profile" id="userProfile">Cargando...</div>
+</header>
+
+<main class="container" id="mainContent" style="display:none;">
+  
+  <div class="dashboard-grid">
+    <!-- Podio -->
+    <div class="card-panel">
+      <h2>🏆 Top Personas Reconocidas</h2>
+      <div class="podium" id="podiumContainer">
+        <!-- Render dinámico -->
+      </div>
+    </div>
+
+    <!-- Departamentos & Stats -->
+    <div class="card-panel">
+      <h2>🏢 Top Departamentos</h2>
+      <ul class="dept-list" id="deptContainer">
+        <!-- Render dinámico -->
+      </ul>
+      <div class="stats-container">
+        <div class="stat-mini">
+          <strong id="statTotal">0</strong>
+          <span>Totales</span>
+        </div>
+        <div class="stat-mini">
+          <strong id="statMonth">0</strong>
+          <span>Este Mes</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Reconoce a un compañero</h2>
+  <div class="controls">
+    <input type="text" class="search-input" id="searchInput" placeholder="Buscar por nombre..." oninput="filterPeople()">
+    <select class="filter-select" id="deptFilter" onchange="filterPeople()">
+      <option value="">Todos los departamentos</option>
+    </select>
+  </div>
+
+  <div class="people-grid" id="peopleContainer">
+    <!-- Render dinámico -->
+  </div>
+
+</main>
+
+<div class="loading-screen" id="loadingScreen">
+  Cargando sistema de reconocimientos...
+</div>
+
+<!-- Modal Nueva Felicitación -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <h2 style="margin-top:0; color: var(--secondary);">Nuevo Reconocimiento</h2>
+    
+    <div class="modal-target" id="modalTarget"></div>
+    
+    <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Selecciona una categoría</p>
+    <div class="category-grid" id="modalCategories"></div>
+    
+    <p style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Tu mensaje</p>
+    <textarea id="messageInput" placeholder="Escribe tu mensaje aquí..." maxlength="500"></textarea>
+    
+    <button class="btn-submit" id="btnSubmit" onclick="submitRecognition()">Enviar Reconocimiento 🎉</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let APP_STATE = {
+    people: [],
+    categories: [],
+    selectedPersonId: null,
+    selectedCategoryId: null
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    google.script.run
+      .withSuccessHandler(initApp)
+      .withFailureHandler(handleError)
+      .getAppData();
+  });
+
+  function initApp(data) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    
+    document.getElementById('userProfile').innerText = 'Hola, ' + data.currentUser.name;
+
+    APP_STATE.people = data.people;
+    APP_STATE.categories = data.categories;
+
+    renderDashboard(data.dashboard);
+    populateDeptFilter();
+    renderPeople(APP_STATE.people);
+  }
+
+  function renderDashboard(dashData) {
+    // Top Personas (Podio)
+    const podium = document.getElementById('podiumContainer');
+    if (dashData.topPeople.length === 0) {
+      podium.innerHTML = '<p style="color:var(--muted); width:100%; text-align:center;">Aún no hay reconocimientos.</p>';
+    } else {
+      // Reordenar para visual (2, 1, 3)
+      const visualOrder = [];
+      if(dashData.topPeople[1]) visualOrder.push({...dashData.topPeople[1], rank: 2});
+      if(dashData.topPeople[0]) visualOrder.push({...dashData.topPeople[0], rank: 1});
+      if(dashData.topPeople[2]) visualOrder.push({...dashData.topPeople[2], rank: 3});
+
+      podium.innerHTML = visualOrder.map(p => `
+        <div class="podium-item rank-${p.rank}">
+          <img src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}">
+          <span class="podium-name">${escapeHtml(p.name)}</span>
+          <div class="rank-bar">${p.recognitions}</div>
+        </div>
+      `).join('');
+    }
+
+    // Top Deptos
+    const deptList = document.getElementById('deptContainer');
+    deptList.innerHTML = dashData.topDepartments.map(d => `
+      <li class="dept-item">
+        <span>${escapeHtml(d.department)}</span>
+        <span class="dept-count">${d.count}</span>
+      </li>
+    `).join('');
+
+    // Stats
+    document.getElementById('statTotal').innerText = dashData.stats.total;
+    document.getElementById('statMonth').innerText = dashData.stats.thisMonth;
+  }
+
+  function populateDeptFilter() {
+    const depts = [...new Set(APP_STATE.people.map(p => p.department))].filter(Boolean).sort();
+    const select = document.getElementById('deptFilter');
+    depts.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderPeople(list) {
+    const container = document.getElementById('peopleContainer');
+    container.innerHTML = list.map(p => `
+      <div class="person-card" onclick="openModal(${p.id})">
+        <img class="person-photo" src="${escapeHtml(p.photoUrl)}" alt="${escapeHtml(p.name)}">
+        <div class="person-name">${escapeHtml(p.name)}</div>
+        <div class="person-dept">${escapeHtml(p.department)}</div>
+        <button class="btn-felicitar">Felicitar</button>
+      </div>
+    `).join('');
+  }
+
+  function filterPeople() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const d = document.getElementById('deptFilter').value;
+    
+    const filtered = APP_STATE.people.filter(p => {
+      const matchName = p.name.toLowerCase().includes(q);
+      const matchDept = d === '' || p.department === d;
+      return matchName && matchDept;
+    });
+    renderPeople(filtered);
+  }
+
+  function openModal(personId) {
+    const person = APP_STATE.people.find(p => p.id === personId);
+    if(!person) return;
+
+    APP_STATE.selectedPersonId = personId;
+    APP_STATE.selectedCategoryId = null;
+
+    document.getElementById('modalTarget').innerHTML = `
+      <img src="${escapeHtml(person.photoUrl)}" alt="Avatar">
+      <div>
+        <h3>Felicitar a ${escapeHtml(person.name)}</h3>
+        <p>${escapeHtml(person.department)}</p>
+      </div>
+    `;
+
+    const catContainer = document.getElementById('modalCategories');
+    catContainer.innerHTML = APP_STATE.categories.map(c => `
+      <div class="cat-item" id="cat-${c.id}" onclick="selectCategory(${c.id})">
+        <span class="cat-emoji">${c.emoji}</span>
+        <span class="cat-name">${escapeHtml(c.name)}</span>
+      </div>
+    `).join('');
+
+    document.getElementById('messageInput').value = '';
+    document.getElementById('btnSubmit').disabled = false;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+  }
+
+  function selectCategory(catId) {
+    APP_STATE.selectedCategoryId = catId;
+    document.querySelectorAll('.cat-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`cat-${catId}`).classList.add('active');
+    
+    // Obtener sugerencias
+    google.script.run.withSuccessHandler(msgs => {
+      if(msgs && msgs.length > 0) {
+        // Seleccionar uno aleatorio de los sugeridos
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)].message;
+        document.getElementById('messageInput').placeholder = "Ejemplo: " + randomMsg;
+      }
+    }).getMessages(catId);
+  }
+
+  function submitRecognition() {
+    if(!APP_STATE.selectedPersonId) return showToast("Falta destinatario.");
+    if(!APP_STATE.selectedCategoryId) return showToast("Selecciona una categoría.");
+    const msg = document.getElementById('messageInput').value.trim();
+    if(!msg) return showToast("Escribe un mensaje.");
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    btn.innerText = "Enviando...";
+
+    const payload = {
+      personId: APP_STATE.selectedPersonId,
+      categoryId: APP_STATE.selectedCategoryId,
+      message: msg
+    };
+
+    google.script.run
+      .withSuccessHandler(res => {
+        closeModal();
+        showToast(`¡Reconocimiento enviado a ${res.personName}!`);
+        // Recargar datos para actualizar podio
+        setTimeout(() => location.reload(), 2000); 
+      })
+      .withFailureHandler(err => {
+        showToast(err.message || "Error al enviar");
+        btn.disabled = false;
+        btn.innerText = "Enviar Reconocimiento 🎉";
+      })
+      .createRecognition(payload);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 4000);
+  }
+
+  function handleError(err) {
+    document.getElementById('loadingScreen').innerHTML = `<p style="color:red">Error: ${err.message}</p>`;
+    console.error(err);
+  }
+
+  function escapeHtml(str) {
+    if(typeof str !== 'string') return str;
+    return str.replace(/[&<>'"]/g, 
+      tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+    );
+  }
+</script>
+</body>
+</html>
