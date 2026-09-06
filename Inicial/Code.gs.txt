@@ -1,0 +1,655 @@
+/*******************************************************
+ * KUDOS - SISTEMA DE RECONOCIMIENTOS
+ * Google Apps Script
+ *
+ * Arquitectura:
+ *  - Configuración centralizada
+ *  - Acceso a datos
+ *  - Validaciones
+ *  - Reconocimientos
+ *  - Estadísticas
+ *******************************************************/
+
+const CONFIG = {
+
+  APP_NAME: 'Kudos',
+
+  SHEETS: {
+    PERSONAL: 'Personal',
+    RECOGNITIONS: 'Recognitions',
+    CATEGORIES: 'Categories',
+    MESSAGES: 'Messages'
+  },
+
+  DEFAULT_PHOTO:
+    'https://via.placeholder.com/300x300.png?text=Employee',
+
+  MAX_MESSAGE_LENGTH: 500,
+
+  DATE_FORMAT: 'dd/MM/yyyy HH:mm',
+
+  COLORS: {
+    PRIMARY: '#2563EB',
+    SECONDARY: '#7C3AED',
+    SUCCESS: '#10B981',
+    BACKGROUND: '#F8FAFC'
+  }
+};
+
+
+/**
+ * Punto de entrada de la aplicación
+ */
+function doGet() {
+
+  return HtmlService
+    .createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle(CONFIG.APP_NAME)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+
+/**
+ * Permite incluir archivos HTML adicionales.
+ */
+function include(filename) {
+
+  return HtmlService
+    .createHtmlOutputFromFile(filename)
+    .getContent();
+}
+
+
+/**
+ * Inicializa las hojas necesarias.
+ *
+ * Ejecutar una sola vez.
+ */
+function setupSystem() {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  createSheetIfMissing(
+    ss,
+    CONFIG.SHEETS.RECOGNITIONS,
+    [
+      'Recognition_ID',
+      'Timestamp',
+      'From_Email',
+      'From_Name',
+      'To_ID',
+      'To_Name',
+      'Department',
+      'Category_ID',
+      'Category',
+      'Message'
+    ]
+  );
+
+  createSheetIfMissing(
+    ss,
+    CONFIG.SHEETS.CATEGORIES,
+    [
+      'Category_ID',
+      'Category',
+      'Emoji',
+      'Description',
+      'Active'
+    ]
+  );
+
+  createSheetIfMissing(
+    ss,
+    CONFIG.SHEETS.MESSAGES,
+    [
+      'Message_ID',
+      'Category_ID',
+      'Message',
+      'Active'
+    ]
+  );
+
+  seedCategories();
+
+  return {
+    success: true,
+    message: 'Sistema inicializado correctamente.'
+  };
+}
+
+
+/**
+ * Crea una hoja si no existe.
+ */
+function createSheetIfMissing(ss, name, headers) {
+
+  let sheet = ss.getSheetByName(name);
+
+  if (!sheet) {
+
+    sheet = ss.insertSheet(name);
+
+    sheet
+      .getRange(1, 1, 1, headers.length)
+      .setValues([headers]);
+
+    sheet
+      .getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold');
+  }
+}
+
+
+/**
+ * Obtiene todas las personas activas.
+ */
+function getPeople() {
+
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length <= 1) {
+    return [];
+  }
+
+  const headers = values.shift();
+
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(person => {
+
+      const active =
+        person.Active === undefined ||
+        person.Active === '' ||
+        person.Active === true ||
+        String(person.Active).toUpperCase() === 'TRUE';
+
+      return active;
+    })
+    .map(person => ({
+      id: person.ID_Person,
+      name: person.Name,
+      email: person.Email,
+      department: person.Department,
+      photoUrl:
+        person.Photo_URL ||
+        CONFIG.DEFAULT_PHOTO,
+      jobTitle: person.Job_Title || '',
+      recognitions:
+        Number(person.Contador_Felicitaciones) || 0
+    }));
+}
+
+
+/**
+ * Obtiene las categorías activas.
+ */
+function getCategories() {
+
+  const sheet = getSheet(CONFIG.SHEETS.CATEGORIES);
+
+  if (!sheet) return [];
+
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(item =>
+      String(item.Active).toUpperCase() !== 'FALSE'
+    )
+    .map(item => ({
+      id: item.Category_ID,
+      name: item.Category,
+      emoji: item.Emoji || '⭐',
+      description: item.Description || ''
+    }));
+}
+
+
+/**
+ * Obtiene mensajes prediseñados.
+ */
+function getMessages(categoryId) {
+
+  const sheet = getSheet(CONFIG.SHEETS.MESSAGES);
+
+  if (!sheet) return [];
+
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+
+  return values
+    .map(row => rowToObject(headers, row))
+    .filter(item => {
+
+      const active =
+        String(item.Active).toUpperCase() !== 'FALSE';
+
+      const categoryMatch =
+        !categoryId ||
+        String(item.Category_ID) === String(categoryId);
+
+      return active && categoryMatch;
+    })
+    .map(item => ({
+      id: item.Message_ID,
+      message: item.Message
+    }));
+}
+
+
+/**
+ * Obtiene información inicial para la aplicación.
+ */
+function getAppData() {
+
+  return {
+    appName: CONFIG.APP_NAME,
+    people: getPeople(),
+    categories: getCategories(),
+    recentRecognitions: getRecentRecognitions(10),
+    stats: getStats()
+  };
+}
+
+
+/**
+ * Crea un nuevo reconocimiento.
+ */
+function createRecognition(data) {
+
+  validateRecognition(data);
+
+  const lock =
+    LockService.getScriptLock();
+
+  lock.waitLock(10000);
+
+  try {
+
+    const ss =
+      SpreadsheetApp.getActiveSpreadsheet();
+
+    const sheet =
+      getSheet(CONFIG.SHEETS.RECOGNITIONS);
+
+    const person =
+      findPersonById(data.personId);
+
+    if (!person) {
+      throw new Error(
+        'La persona seleccionada no existe.'
+      );
+    }
+
+    const categories =
+      getCategories();
+
+    const category =
+      categories.find(
+        c => String(c.id) === String(data.categoryId)
+      );
+
+    if (!category) {
+      throw new Error(
+        'La categoría seleccionada no existe.'
+      );
+    }
+
+    const recognitionId =
+      generateRecognitionId();
+
+    const userEmail =
+      Session.getActiveUser().getEmail();
+
+    const userName =
+      userEmail || 'Usuario';
+
+    const now = new Date();
+
+    sheet.appendRow([
+      recognitionId,
+      now,
+      userEmail,
+      userName,
+      person.id,
+      person.name,
+      person.department,
+      category.id,
+      category.name,
+      data.message.trim()
+    ]);
+
+    updatePersonCounter(person.id);
+
+    return {
+      success: true,
+      recognitionId: recognitionId,
+      personName: person.name,
+      category: category.name,
+      emoji: category.emoji,
+      timestamp: Utilities.formatDate(
+        now,
+        Session.getScriptTimeZone(),
+        CONFIG.DATE_FORMAT
+      )
+    };
+
+  } finally {
+
+    lock.releaseLock();
+  }
+}
+
+
+/**
+ * Validaciones de seguridad y negocio.
+ */
+function validateRecognition(data) {
+
+  if (!data) {
+    throw new Error('No se recibieron datos.');
+  }
+
+  if (!data.personId) {
+    throw new Error(
+      'Debes seleccionar una persona.'
+    );
+  }
+
+  if (!data.categoryId) {
+    throw new Error(
+      'Debes seleccionar una categoría.'
+    );
+  }
+
+  if (!data.message ||
+      !data.message.trim()) {
+
+    throw new Error(
+      'Debes escribir un mensaje.'
+    );
+  }
+
+  if (
+    data.message.trim().length >
+    CONFIG.MAX_MESSAGE_LENGTH
+  ) {
+
+    throw new Error(
+      `El mensaje no puede superar ${CONFIG.MAX_MESSAGE_LENGTH} caracteres.`
+    );
+  }
+}
+
+
+/**
+ * Actualiza el contador del empleado.
+ */
+function updatePersonCounter(personId) {
+
+  const sheet =
+    getSheet(CONFIG.SHEETS.PERSONAL);
+
+  const data =
+    sheet.getDataRange().getValues();
+
+  const headers =
+    data[0];
+
+  const idColumn =
+    headers.indexOf('ID_Person');
+
+  const counterColumn =
+    headers.indexOf('Contador_Felicitaciones');
+
+  if (
+    idColumn === -1 ||
+    counterColumn === -1
+  ) {
+    return;
+  }
+
+  for (let i = 1; i < data.length; i++) {
+
+    if (
+      String(data[i][idColumn]) ===
+      String(personId)
+    ) {
+
+      const current =
+        Number(data[i][counterColumn]) || 0;
+
+      sheet
+        .getRange(i + 1, counterColumn + 1)
+        .setValue(current + 1);
+
+      return;
+    }
+  }
+}
+
+
+/**
+ * Obtiene reconocimientos recientes.
+ */
+function getRecentRecognitions(limit = 10) {
+
+  const sheet =
+    getSheet(CONFIG.SHEETS.RECOGNITIONS);
+
+  if (!sheet ||
+      sheet.getLastRow() <= 1) {
+
+    return [];
+  }
+
+  const values =
+    sheet.getDataRange().getValues();
+
+  const headers =
+    values.shift();
+
+  return values
+    .map(row => rowToObject(headers, row))
+    .reverse()
+    .slice(0, limit)
+    .map(item => ({
+      id: item.Recognition_ID,
+      timestamp: item.Timestamp,
+      fromName: item.From_Name,
+      toName: item.To_Name,
+      department: item.Department,
+      category: item.Category,
+      message: item.Message
+    }));
+}
+
+
+/**
+ * Estadísticas generales.
+ */
+function getStats() {
+
+  const people =
+    getPeople();
+
+  const recognitions =
+    getRecentRecognitions(
+      999999
+    );
+
+  const total =
+    recognitions.length;
+
+  const thisMonth =
+    recognitions.filter(item => {
+
+      const date =
+        new Date(item.timestamp);
+
+      const now =
+        new Date();
+
+      return (
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
+      );
+
+    }).length;
+
+  const topPeople =
+    [...people]
+      .sort(
+        (a, b) =>
+          b.recognitions -
+          a.recognitions
+      )
+      .slice(0, 5);
+
+  return {
+
+    total,
+
+    thisMonth,
+
+    peopleRecognized:
+      people.filter(
+        p => p.recognitions > 0
+      ).length,
+
+    topPeople
+  };
+}
+
+
+/**
+ * Busca una persona por ID.
+ */
+function findPersonById(id) {
+
+  const people =
+    getPeople();
+
+  return people.find(
+    p =>
+      String(p.id) ===
+      String(id)
+  );
+}
+
+
+/**
+ * Genera ID único.
+ */
+function generateRecognitionId() {
+
+  const timestamp =
+    new Date().getTime();
+
+  const random =
+    Math.floor(
+      Math.random() * 999
+    );
+
+  return `REC-${timestamp}-${random}`;
+}
+
+
+/**
+ * Convierte una fila en objeto.
+ */
+function rowToObject(headers, row) {
+
+  const obj = {};
+
+  headers.forEach(
+    (header, index) => {
+
+      obj[header] =
+        row[index];
+    }
+  );
+
+  return obj;
+}
+
+
+/**
+ * Obtiene una hoja.
+ */
+function getSheet(name) {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(name);
+
+  if (!sheet) {
+
+    throw new Error(
+      `No existe la hoja "${name}".`
+    );
+  }
+
+  return sheet;
+}
+
+
+/**
+ * Inserta categorías iniciales.
+ */
+function seedCategories() {
+
+  const sheet =
+    getSheet(CONFIG.SHEETS.CATEGORIES);
+
+  if (sheet.getLastRow() > 1) {
+    return;
+  }
+
+  const categories = [
+
+    [1, 'Trabajo en equipo', '🤝',
+      'Reconoce colaboración y apoyo.', true],
+
+    [2, 'Excelencia', '🏆',
+      'Reconoce resultados sobresalientes.', true],
+
+    [3, 'Innovación', '💡',
+      'Reconoce nuevas ideas y mejoras.', true],
+
+    [4, 'Liderazgo', '⭐',
+      'Reconoce liderazgo y compromiso.', true],
+
+    [5, 'Calidad', '🎯',
+      'Reconoce atención y enfoque en calidad.', true],
+
+    [6, 'Iniciativa', '🚀',
+      'Reconoce proactividad.', true],
+
+    [7, 'Actitud positiva', '☀️',
+      'Reconoce energía y actitud.', true],
+
+    [8, 'Apoyo', '💙',
+      'Reconoce ayuda a compañeros.', true]
+  ];
+
+  sheet
+    .getRange(
+      2,
+      1,
+      categories.length,
+      categories[0].length
+    )
+    .setValues(categories);
+}

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <base target="_top">
+
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+
+  <title>Kudos</title>
+
+  <style>
+
+    :root {
+
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #7c3aed;
+
+      --bg: #f8fafc;
+      --card: #ffffff;
+
+      --text: #0f172a;
+      --muted: #64748b;
+
+      --border: #e2e8f0;
+
+      --success: #10b981;
+
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+
+      margin: 0;
+
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        linear-gradient(
+          135deg,
+          #f8fafc,
+          #eef2ff
+        );
+
+      color: var(--text);
+    }
+
+
+    /* HEADER */
+
+    header {
+
+      background:
+        linear-gradient(
+          135deg,
+          var(--primary),
+          var(--secondary)
+        );
+
+      color: white;
+
+      padding: 26px 40px;
+
+      display: flex;
+
+      justify-content:
+        space-between;
+
+      align-items: center;
+
+      box-shadow:
+        0 10px 30px
+        rgba(37,99,235,.15);
+    }
+
+
+    .brand {
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+    }
+
+
+    .brand-icon {
+
+      width: 42px;
+      height: 42px;
+
+      border-radius: 12px;
+
+      background:
+        rgba(255,255,255,.2);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      font-size: 22px;
+    }
+
+
+    .brand h1 {
+
+      margin: 0;
+
+      font-size: 22px;
+    }
+
+
+    .brand span {
+
+      font-size: 12px;
+
+      opacity: .8;
+    }
+
+
+    /* CONTAINER */
+
+    .container {
+
+      max-width: 1200px;
+
+      margin: auto;
+
+      padding: 35px 24px;
+    }
+
+
+    /* HERO */
+
+    .hero {
+
+      margin-bottom: 30px;
+    }
+
+
+    .hero h2 {
+
+      font-size: 34px;
+
+      margin:
+        0 0 8px;
+    }
+
+
+    .hero p {
+
+      margin: 0;
+
+      color: var(--muted);
+
+      font-size: 16px;
+    }
+
+
+    /* STATS */
+
+    .stats {
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(3, 1fr);
+
+      gap: 18px;
+
+      margin-bottom: 30px;
+    }
+
+
+    .stat {
+
+      background: var(--card);
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        var(--radius);
+
+      padding: 22px;
+
+      box-shadow:
+        0 10px 25px
+        rgba(15,23,42,.04);
+    }
+
+
+    .stat-label {
+
+      color: var(--muted);
+
+      font-size: 13px;
+    }
+
+
+    .stat-value {
+
+      font-size: 30px;
+
+      font-weight: 700;
+
+      margin-top: 7px;
+    }
+
+
+    /* SEARCH */
+
+    .search {
+
+      margin-bottom: 22px;
+
+      position: relative;
+    }
+
+
+    .search input {
+
+      width: 100%;
+
+      padding: 17px 20px;
+
+      border-radius: 14px;
+
+      border:
+        1px solid var(--border);
+
+      font-size: 15px;
+
+      outline: none;
+
+      background: white;
+
+      transition: .2s;
+    }
+
+
+    .search input:focus {
+
+      border-color:
+        var(--primary);
+
+      box-shadow:
+        0 0 0 4px
+        rgba(37,99,235,.1);
+    }
+
+
+    /* PEOPLE */
+
+    .people-grid {
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(
+          auto-fill,
+          minmax(240px, 1fr)
+        );
+
+      gap: 20px;
+    }
+
+
+    .person-card {
+
+      background: white;
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        var(--radius);
+
+      padding: 22px;
+
+      text-align: center;
+
+      transition:
+        transform .2s,
+        box-shadow .2s;
+
+      cursor: pointer;
+    }
+
+
+    .person-card:hover {
+
+      transform:
+        translateY(-5px);
+
+      box-shadow:
+        0 18px 35px
+        rgba(15,23,42,.1);
+    }
+
+
+    .person-photo {
+
+      width: 90px;
+      height: 90px;
+
+      border-radius: 50%;
+
+      object-fit: cover;
+
+      margin-bottom: 14px;
+
+      border:
+        4px solid #eef2ff;
+    }
+
+
+    .person-name {
+
+      font-size: 17px;
+
+      font-weight: 700;
+    }
+
+
+    .person-department {
+
+      color: var(--muted);
+
+      font-size: 13px;
+
+      margin-top: 5px;
+    }
+
+
+    .person-count {
+
+      margin-top: 12px;
+
+      display: inline-block;
+
+      padding:
+        6px 10px;
+
+      border-radius: 20px;
+
+      background:
+        #eff6ff;
+
+      color:
+        var(--primary);
+
+      font-size: 12px;
+
+      font-weight: 600;
+    }
+
+
+    /* MODAL */
+
+    .overlay {
+
+      position: fixed;
+
+      inset: 0;
+
+      background:
+        rgba(15,23,42,.55);
+
+      display: none;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 20px;
+
+      z-index: 100;
+    }
+
+
+    .modal {
+
+      width: 100%;
+
+      max-width: 600px;
+
+      background: white;
+
+      border-radius: 24px;
+
+      padding: 30px;
+
+      max-height: 90vh;
+
+      overflow-y: auto;
+    }
+
+
+    .modal-header {
+
+      display: flex;
+
+      justify-content:
+        space-between;
+
+      align-items: center;
+
+      margin-bottom: 25px;
+    }
+
+
+    .close {
+
+      border: none;
+
+      background: #f1f5f9;
+
+      width: 36px;
+      height: 36px;
+
+      border-radius: 50%;
+
+      cursor: pointer;
+
+      font-size: 18px;
+    }
+
+
+    .selected-person {
+
+      text-align: center;
+
+      margin-bottom: 25px;
+    }
+
+
+    .selected-person img {
+
+      width: 110px;
+      height: 110px;
+
+      object-fit: cover;
+
+      border-radius: 50%;
+
+      border: 5px solid #eef2ff;
+    }
+
+
+    .selected-person h3 {
+
+      margin:
+        12px 0 4px;
+    }
+
+
+    .selected-person p {
+
+      margin: 0;
+
+      color: var(--muted);
+    }
+
+
+    /* CATEGORIES */
+
+    .categories {
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      gap: 10px;
+
+      margin-bottom: 20px;
+    }
+
+
+    .category {
+
+      padding: 15px 8px;
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 14px;
+
+      background: white;
+
+      cursor: pointer;
+
+      text-align: center;
+
+      transition: .2s;
+    }
+
+
+    .category:hover {
+
+      border-color:
+        var(--primary);
+    }
+
+
+    .category.selected {
+
+      background:
+        #eff6ff;
+
+      border-color:
+        var(--primary);
+
+      color:
+        var(--primary);
+    }
+
+
+    .category-emoji {
+
+      font-size: 24px;
+
+      display: block;
+
+      margin-bottom: 6px;
+    }
+
+
+    .category-name {
+
+      font-size: 12px;
+
+      font-weight: 600;
+    }
+
+
+    /* TEXTAREA */
+
+    textarea {
+
+      width: 100%;
+
+      min-height: 130px;
+
+      resize: vertical;
+
+      padding: 15px;
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 14px;
+
+      font-family: inherit;
+
+      font-size: 14px;
+
+      outline: none;
+    }
+
+
+    textarea:focus {
+
+      border-color:
+        var(--primary);
+
+      box-shadow:
+        0 0 0 4px
+        rgba(37,99,235,.1);
+    }
+
+
+    /* BUTTON */
+
+    .primary-button {
+
+      width: 100%;
+
+      margin-top: 18px;
+
+      padding: 16px;
+
+      border: none;
+
+      border-radius: 14px;
+
+      background:
+        linear-gradient(
+          135deg,
+          var(--primary),
+          var(--secondary)
+        );
+
+      color: white;
+
+      font-size: 15px;
+
+      font-weight: 700;
+
+      cursor: pointer;
+
+      transition: .2s;
+    }
+
+
+    .primary-button:hover {
+
+      transform:
+        translateY(-2px);
+
+      box-shadow:
+        0 10px 25px
+        rgba(37,99,235,.25);
+    }
+
+
+    /* LOADING */
+
+    .loading {
+
+      text-align: center;
+
+      padding: 50px;
+
+      color: var(--muted);
+    }
+
+
+    /* TOAST */
+
+    .toast {
+
+      position: fixed;
+
+      bottom: 25px;
+
+      right: 25px;
+
+      background:
+        #0f172a;
+
+      color: white;
+
+      padding:
+        14px 18px;
+
+      border-radius: 12px;
+
+      display: none;
+
+      z-index: 999;
+
+      box-shadow:
+        0 10px 30px
+        rgba(0,0,0,.2);
+    }
+
+
+    @media(max-width:700px) {
+
+      header {
+        padding: 20px;
+      }
+
+      .container {
+        padding: 25px 15px;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .categories {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .hero h2 {
+        font-size: 27px;
+      }
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+  <div class="brand">
+
+    <div class="brand-icon">
+      🎉
+    </div>
+
+    <div>
+
+      <h1>Kudos</h1>
+
+      <span>
+        Reconocimiento interno
+      </span>
+
+    </div>
+
+  </div>
+
+</header>
+
+
+<main class="container">
+
+
+  <section class="hero">
+
+    <h2>
+      Reconoce a alguien que hizo la diferencia ✨
+    </h2>
+
+    <p>
+      Un pequeño reconocimiento puede generar un gran impacto.
+    </p>
+
+  </section>
+
+
+  <section class="stats">
+
+    <div class="stat">
+
+      <div class="stat-label">
+        Reconocimientos totales
+      </div>
+
+      <div
+        class="stat-value"
+        id="totalRecognitions">
+        -
+      </div>
+
+    </div>
+
+
+    <div class="stat">
+
+      <div class="stat-label">
+        Este mes
+      </div>
+
+      <div
+        class="stat-value"
+        id="monthlyRecognitions">
+        -
+      </div>
+
+    </div>
+
+
+    <div class="stat">
+
+      <div class="stat-label">
+        Personas reconocidas
+      </div>
+
+      <div
+        class="stat-value"
+        id="peopleRecognized">
+        -
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <section class="search">
+
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="🔎 Buscar por nombre o departamento..."
+      oninput="filterPeople()">
+
+  </section>
+
+
+  <section
+    id="peopleContainer"
+    class="people-grid">
+
+    <div class="loading">
+      Cargando personas...
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<!-- MODAL -->
+
+<div
+  class="overlay"
+  id="modal">
+
+  <div class="modal">
+
+
+    <div class="modal-header">
+
+      <h2>
+        🎉 Reconocer
+      </h2>
+
+      <button
+        class="close"
+        onclick="closeModal()">
+        ×
+      </button>
+
+    </div>
+
+
+    <div
+      class="selected-person"
+      id="selectedPerson">
+    </div>
+
+
+    <h4>
+      ¿Qué quieres reconocer?
+    </h4>
+
+
+    <div
+      class="categories"
+      id="categoriesContainer">
+    </div>
+
+
+    <h4>
+      Tu mensaje
+    </h4>
+
+
+    <textarea
+      id="message"
+      maxlength="500"
+      placeholder="Escribe un mensaje de reconocimiento...">
+    </textarea>
+
+
+    <button
+      class="primary-button"
+      onclick="sendRecognition()">
+
+      🎉 Enviar reconocimiento
+
+    </button>
+
+  </div>
+
+</div>
+
+
+<div
+  class="toast"
+  id="toast">
+</div>
+
+
+<script>
+
+  let APP = {
+
+    people: [],
+
+    categories: [],
+
+    selectedPerson: null,
+
+    selectedCategory: null
+
+  };
+
+
+  /**
+   * Inicialización
+   */
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    loadApp
+  );
+
+
+  function loadApp() {
+
+    google.script.run
+
+      .withSuccessHandler(
+        initializeApp
+      )
+
+      .withFailureHandler(
+        showError
+      )
+
+      .getAppData();
+  }
+
+
+  function initializeApp(data) {
+
+    APP.people =
+      data.people || [];
+
+    APP.categories =
+      data.categories || [];
+
+    renderStats(
+      data.stats
+    );
+
+    renderPeople(
+      APP.people
+    );
+  }
+
+
+  /**
+   * Estadísticas
+   */
+
+  function renderStats(stats) {
+
+    document
+      .getElementById(
+        'totalRecognitions'
+      )
+      .textContent =
+      stats.total || 0;
+
+
+    document
+      .getElementById(
+        'monthlyRecognitions'
+      )
+      .textContent =
+      stats.thisMonth || 0;
+
+
+    document
+      .getElementById(
+        'peopleRecognized'
+      )
+      .textContent =
+      stats.peopleRecognized || 0;
+  }
+
+
+  /**
+   * Personas
+   */
+
+  function renderPeople(people) {
+
+    const container =
+      document.getElementById(
+        'peopleContainer'
+      );
+
+    if (!people.length) {
+
+      container.innerHTML =
+        '<div class="loading">No se encontraron personas.</div>';
+
+      return;
+    }
+
+
+    container.innerHTML =
+      people.map(person => `
+
+        <div
+          class="person-card"
+          onclick="openRecognition(${escapeJs(person.id)})">
+
+          <img
+            class="person-photo"
+            src="${escapeHtml(person.photoUrl)}"
+            onerror="this.src='${escapeHtml('https://via.placeholder.com/300x300.png?text=Employee')}'">
+
+          <div class="person-name">
+            ${escapeHtml(person.name)}
+          </div>
+
+          <div class="person-department">
+            ${escapeHtml(person.department)}
+          </div>
+
+          <div class="person-count">
+            🏆 ${person.recognitions}
+            reconocimientos
+          </div>
+
+        </div>
+
+      `).join('');
+  }
+
+
+  /**
+   * Buscar
+   */
+
+  function filterPeople() {
+
+    const query =
+      document
+        .getElementById(
+          'searchInput'
+        )
+        .value
+        .toLowerCase()
+        .trim();
+
+
+    const filtered =
+      APP.people.filter(person =>
+
+        String(person.name)
+          .toLowerCase()
+          .includes(query)
+
+        ||
+
+        String(person.department)
+          .toLowerCase()
+          .includes(query)
+
+      );
+
+
+    renderPeople(filtered);
+  }
+
+
+  /**
+   * Abrir reconocimiento
+   */
+
+  function openRecognition(id) {
+
+    const person =
+      APP.people.find(
+        p =>
+          String(p.id) ===
+          String(id)
+      );
+
+
+    if (!person) return;
+
+
+    APP.selectedPerson =
+      person;
+
+    APP.selectedCategory =
+      null;
+
+
+    document
+      .getElementById(
+        'selectedPerson'
+      )
+      .innerHTML = `
+
+        <img
+          src="${escapeHtml(person.photoUrl)}"
+          onerror="this.src='https://via.placeholder.com/300x300.png?text=Employee'">
+
+        <h3>
+          ${escapeHtml(person.name)}
+        </h3>
+
+        <p>
+          ${escapeHtml(person.department)}
+        </p>
+
+      `;
+
+
+    renderCategories();
+
+
+    document
+      .getElementById(
+        'message'
+      )
+      .value = '';
+
+
+    document
+      .getElementById(
+        'modal'
+      )
+      .style.display =
+      'flex';
+  }
+
+
+  /**
+   * Categorías
+   */
+
+  function renderCategories() {
+
+    const container =
+      document.getElementById(
+        'categoriesContainer'
+      );
+
+
+    container.innerHTML =
+      APP.categories.map(category => `
+
+        <div
+          class="category"
+          data-id="${escapeHtml(category.id)}"
+          onclick="selectCategory('${escapeJs(category.id)}')">
+
+          <span class="category-emoji">
+            ${escapeHtml(category.emoji)}
+          </span>
+
+          <span class="category-name">
+            ${escapeHtml(category.name)}
+          </span>
+
+        </div>
+
+      `).join('');
+  }
+
+
+  function selectCategory(id) {
+
+    APP.selectedCategory =
+      APP.categories.find(
+        c =>
+          String(c.id) ===
+          String(id)
+      );
+
+
+    document
+      .querySelectorAll(
+        '.category'
+      )
+      .forEach(el => {
+
+        el.classList.toggle(
+          'selected',
+          el.dataset.id === String(id)
+        );
+
+      });
+
+
+    loadMessages(id);
+  }
+
+
+  /**
+   * Mensajes sugeridos
+   */
+
+  function loadMessages(categoryId) {
+
+    google.script.run
+
+      .withSuccessHandler(messages => {
+
+        if (!messages.length) return;
+
+        const message =
+          document.getElementById(
+            'message'
+          );
+
+        message.placeholder =
+          messages[0].message;
+
+      })
+
+      .getMessages(categoryId);
+  }
+
+
+  /**
+   * Enviar
+   */
+
+  function sendRecognition() {
+
+    if (!APP.selectedPerson) {
+
+      showToast(
+        'Selecciona una persona.'
+      );
+
+      return;
+    }
+
+
+    if (!APP.selectedCategory) {
+
+      showToast(
+        'Selecciona una categoría.'
+      );
+
+      return;
+    }
+
+
+    const message =
+      document
+        .getElementById(
+          'message'
+        )
+        .value
+        .trim();
+
+
+    if (!message) {
+
+      showToast(
+        'Escribe un mensaje.'
+      );
+
+      return;
+    }
+
+
+    const data = {
+
+      personId:
+        APP.selectedPerson.id,
+
+      categoryId:
+        APP.selectedCategory.id,
+
+      message:
+        message
+
+    };
+
+
+    google.script.run
+
+      .withSuccessHandler(
+        recognitionSent
+      )
+
+      .withFailureHandler(
+        showError
+      )
+
+      .createRecognition(data);
+  }
+
+
+  /**
+   * Reconocimiento enviado
+   */
+
+  function recognitionSent(result) {
+
+    closeModal();
+
+    showToast(
+      `🎉 ¡Reconocimiento enviado a ${result.personName}!`
+    );
+
+
+    setTimeout(
+      loadApp,
+      1000
+    );
+  }
+
+
+  /**
+   * Cerrar modal
+   */
+
+  function closeModal() {
+
+    document
+      .getElementById(
+        'modal'
+      )
+      .style.display =
+      'none';
+  }
+
+
+  /**
+   * Mensajes UI
+   */
+
+  function showToast(message) {
+
+    const toast =
+      document.getElementById(
+        'toast'
+      );
+
+    toast.textContent =
+      message;
+
+    toast.style.display =
+      'block';
+
+
+    setTimeout(() => {
+
+      toast.style.display =
+        'none';
+
+    }, 3500);
+  }
+
+
+  function showError(error) {
+
+    console.error(error);
+
+    showToast(
+      error.message ||
+      'Ocurrió un error.'
+    );
+  }
+
+
+  /**
+   * Protección básica para HTML.
+   */
+
+  function escapeHtml(value) {
+
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+
+  function escapeJs(value) {
+
+    return String(value ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'");
+  }
+
+</script>
+
+</body>
+
+</html>
