@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <base target="_top">
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Kudos</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+
+    :root {
+
+      /* Paleta corporativa (exacta a la solicitada) */
+      --bg: #FCFCFC;
+      --ink: #161A31;
+      --maroon: #911234;
+
+      /* Derivados neutros / tintes, sin colores nuevos */
+      --ink-soft: #565A72;
+      --ink-faint: #9296A8;
+      --line: #E7E7EC;
+      --surface: #FFFFFF;
+      --maroon-dark: #6E0E27;
+      --maroon-tint: #FBEEF1;
+      --ink-tint: #EEEEF3;
+
+      --radius-lg: 22px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, .display {
+      font-family: 'Sora', 'Inter', sans-serif;
+    }
+
+    button { font-family: inherit; }
+
+    a { color: inherit; }
+
+    :focus-visible {
+      outline: 3px solid var(--maroon);
+      outline-offset: 2px;
+    }
+
+
+    /* ============ NAVBAR ============ */
+
+    .navbar {
+
+      background: var(--ink);
+      color: #fff;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .navbar .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .navbar .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: var(--maroon);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      flex-shrink: 0;
+    }
+
+    .navbar .brand-text h1 {
+      margin: 0;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .navbar .brand-text span {
+      font-size: 12px;
+      color: rgba(255,255,255,.6);
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,.08);
+      padding: 4px;
+      border-radius: 999px;
+    }
+
+    .nav-tab {
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,.75);
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .nav-tab.active {
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .session-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,.75);
+    }
+
+    .session-chip strong {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn-new {
+      border: none;
+      background: var(--maroon);
+      color: #fff;
+      padding: 11px 20px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+
+    .btn-new:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(145,18,52,.35);
+    }
+
+    .btn-new:disabled {
+      background: var(--ink-faint);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+
+    /* ============ CONTAINER ============ */
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 60px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-heading h2 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .section-heading p {
+      margin: 2px 0 0;
+      color: var(--ink-soft);
+      font-size: 13.5px;
+    }
+
+
+    /* ============ PODIO TOP 3 ============ */
+
+    .podium-wrap {
+      margin-bottom: 36px;
+    }
+
+    .podium {
+      display: grid;
+      grid-template-columns: 1fr 1.12fr 1fr;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .podium-card {
+      background: var(--ink);
+      color: #fff;
+      border-radius: var(--radius-lg);
+      padding: 26px 18px 22px;
+      text-align: center;
+      position: relative;
+      order: 2;
+    }
+
+    .podium-card.rank-1 { order: 2; transform: translateY(-14px); padding-top: 34px; }
+    .podium-card.rank-2 { order: 1; opacity: .96; }
+    .podium-card.rank-3 { order: 3; opacity: .92; }
+
+    .podium-rank {
+      font-family: 'Sora', sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--maroon);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .podium-card.rank-1 .podium-rank { color: #fff; -webkit-text-stroke: 1.5px var(--maroon); }
+
+    .podium-photo {
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(255,255,255,.25);
+      margin-bottom: 12px;
+    }
+
+    .podium-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .podium-dept {
+      font-size: 12px;
+      color: rgba(255,255,255,.6);
+      margin-top: 3px;
+    }
+
+    .podium-count {
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,.12);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .podium-empty {
+      background: var(--surface);
+      border: 1px dashed var(--line);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      text-align: center;
+      color: var(--ink-soft);
+    }
+
+
+    /* ============ STATS + DEPARTAMENTOS ============ */
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 18px;
+      margin-bottom: 36px;
+    }
+
+    .stat-stack {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .stat-label {
+      color: var(--ink-soft);
+      font-size: 12.5px;
+    }
+
+    .stat-value {
+      font-family: 'Sora', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .dept-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+    }
+
+    .dept-card h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+
+    .dept-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .dept-row:last-child { margin-bottom: 0; }
+
+    .dept-rank {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--maroon);
+      width: 16px;
+      flex-shrink: 0;
+    }
+
+    .dept-name {
+      font-size: 13px;
+      font-weight: 600;
+      width: 92px;
+      flex-shrink: 0;
+    }
+
+    .dept-bar-track {
+      flex: 1;
+      background: var(--ink-tint);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .dept-bar-fill {
+      height: 100%;
+      background: var(--maroon);
+      border-radius: 999px;
+    }
+
+    .dept-count {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      width: 26px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .dept-empty {
+      color: var(--ink-faint);
+      font-size: 13px;
+    }
+
+
+    /* ============ FILTROS ============ */
+
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .filters input,
+    .filters select {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 13px 16px;
+      font-size: 14px;
+      background: var(--surface);
+      outline: none;
+      font-family: inherit;
+    }
+
+    .filters input { flex: 1; }
+    .filters select { min-width: 170px; cursor: pointer; }
+
+    .filters input:focus, .filters select:focus {
+      border-color: var(--maroon);
+      box-shadow: 0 0 0 3px var(--maroon-tint);
+    }
+
+
+    /* ============ GALERÍA DE PERSONAS ============ */
+
+    .people-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px;
+    }
+
+    .person-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+
+    .person-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 28px rgba(22,26,49,.08);
+      border-color: var(--maroon);
+    }
+
+    .person-photo {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 10px;
+      border: 3px solid var(--maroon-tint);
+    }
+
+    .person-name { font-size: 14.5px; font-weight: 700; }
+
+    .person-department {
+      color: var(--ink-soft);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .person-count {
+      margin-top: 10px;
+      display: inline-block;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: var(--maroon-tint);
+      color: var(--maroon);
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--ink-soft);
+    }
+
+
+    /* ============ ACTIVIDAD RECIENTE ============ */
+
+    .activity {
+      margin-top: 36px;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13.5px;
+    }
+
+    .activity-item:last-child { border-bottom: none; }
+
+    .activity-emoji { font-size: 18px; }
+
+    .activity-text b { font-weight: 700; }
+
+    .activity-time {
+      color: var(--ink-faint);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+
+    /* ============ MODALES ============ */
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(22,26,49,.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200;
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal {
+      width: 100%;
+      max-width: 560px;
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 { margin: 0; font-size: 19px; }
+
+    .modal-header p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+    .close-btn {
+      border: none;
+      background: var(--ink-tint);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 17px;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 18px 0 8px;
+    }
+
+    .field-label:first-of-type { margin-top: 0; }
+
+    .modal-search {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 14px;
+    }
+
+    .modal-search:focus { border-color: var(--maroon); box-shadow: 0 0 0 3px var(--maroon-tint); }
+
+    .pick-list {
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pick-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .pick-row:hover { background: var(--ink-tint); }
+
+    .pick-row img {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .pick-row .pick-name { font-size: 13.5px; font-weight: 600; }
+    .pick-row .pick-dept { font-size: 11.5px; color: var(--ink-soft); }
+
+    .selected-person {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .selected-person img {
+      width: 84px;
+      height: 84px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 4px solid var(--maroon-tint);
+    }
+
+    .selected-person h3 { margin: 10px 0 2px; }
+    .selected-person p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+
+    .change-person {
+      background: none;
+      border: none;
+      color: var(--maroon);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .categories {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .category {
+      padding: 13px 6px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      cursor: pointer;
+      text-align: center;
+      transition: .15s;
+    }
+
+    .category:hover { border-color: var(--maroon); }
+
+    .category.selected {
+      background: var(--maroon-tint);
+      border-color: var(--maroon);
+      color: var(--maroon);
+    }
+
+    .category-emoji { font-size: 21px; display: block; margin-bottom: 5px; }
+    .category-name { font-size: 11px; font-weight: 600; }
+
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      resize: vertical;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13.5px;
+      outline: none;
+    }
+
+    textarea:focus { border-color: var(--maroon); box-shadow: 0 0 0 3px var(--maroon-tint); }
+
+    .char-count {
+      text-align: right;
+      font-size: 11px;
+      color: var(--ink-faint);
+      margin-top: 5px;
+    }
+
+    .primary-button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 15px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--maroon);
+      color: #fff;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .primary-button:hover { background: var(--maroon-dark); }
+    .primary-button:disabled { background: var(--ink-faint); cursor: not-allowed; }
+
+    .secondary-button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Vista de felicitación (deep link) */
+
+    .celebration-view { text-align: center; padding: 6px 0 0; }
+
+    .celebration-emoji { font-size: 46px; margin-bottom: 6px; }
+
+    .celebration-view img {
+      width: 90px; height: 90px; border-radius: 50%;
+      object-fit: cover; border: 4px solid var(--maroon-tint); margin: 10px 0;
+    }
+
+    .celebration-view h3 { margin: 4px 0 0; }
+    .celebration-view .cat { color: var(--maroon); font-weight: 700; font-size: 13px; margin-top: 6px; }
+
+    .celebration-message {
+      margin: 16px 0 6px;
+      padding: 16px 18px;
+      background: var(--ink-tint);
+      border-radius: var(--radius-md);
+      font-style: italic;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .celebration-from {
+      font-size: 12px;
+      color: var(--ink-soft);
+      margin-top: 10px;
+    }
+
+
+    /* ============ ADMIN ============ */
+
+    .admin-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .admin-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    table.admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    table.admin-table th {
+      text-align: left;
+      background: var(--ink-tint);
+      padding: 12px 16px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+
+    table.admin-table td {
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      vertical-align: middle;
+    }
+
+    table.admin-table tr.inactive td { opacity: .45; }
+
+    .row-person { display: flex; align-items: center; gap: 10px; }
+    .row-person img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+      background: var(--ink-tint);
+      color: var(--ink-soft);
+    }
+
+    .badge.admin { background: var(--maroon-tint); color: var(--maroon); }
+
+    .toggle-btn {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .toggle-btn.is-active { color: var(--maroon); border-color: var(--maroon); }
+
+    .link-btn {
+      border: none;
+      background: none;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .link-btn:hover { color: var(--maroon); }
+
+    .not-registered, .not-admin {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 46px 30px;
+      text-align: center;
+      color: var(--ink-soft);
+      max-width: 460px;
+      margin: 40px auto;
+    }
+
+    .not-registered .emoji, .not-admin .emoji { font-size: 34px; margin-bottom: 10px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-grid label {
+      font-size: 12px;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .form-grid input {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .form-grid input:focus { border-color: var(--maroon); box-shadow: 0 0 0 3px var(--maroon-tint); }
+
+    .form-grid .full { grid-column: 1 / -1; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+
+    /* ============ TOAST ============ */
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--ink);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      display: none;
+      z-index: 999;
+      max-width: 320px;
+      font-size: 13.5px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.25);
+    }
+
+    .loading { text-align: center; padding: 40px; color: var(--ink-soft); grid-column: 1/-1; }
+
+    hr.divider { border: none; border-top: 1px solid var(--line); margin: 34px 0; }
+
+
+    @media (max-width: 760px) {
+
+      .navbar { padding: 12px 16px; flex-wrap: wrap; }
+      .nav-tabs { order: 3; width: 100%; }
+      .container { padding: 22px 14px 50px; }
+      .podium { grid-template-columns: 1fr; }
+      .podium-card.rank-1 { transform: none; order: 1; }
+      .podium-card.rank-2 { order: 2; }
+      .podium-card.rank-3 { order: 3; }
+      .insight-grid { grid-template-columns: 1fr; }
+      .stat-stack { grid-template-columns: 1fr 1fr 1fr; }
+      .filters { flex-direction: column; }
+      .categories { grid-template-columns: repeat(2, 1fr); }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+
+<nav class="navbar">
+
+  <div class="brand">
+    <div class="brand-icon">🎉</div>
+    <div class="brand-text">
+      <h1>Kudos</h1>
+      <span>Reconocimiento interno</span>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tabPanel" onclick="switchView('panel')">Panel</button>
+    <button class="nav-tab" id="tabAdmin" onclick="switchView('admin')" style="display:none;">Administración</button>
+  </div>
+
+  <div class="nav-right">
+    <div class="session-chip" id="sessionChip">Cargando sesión…</div>
+    <button class="link-btn" style="color:rgba(255,255,255,.55);" onclick="openDiagnostics()">Diagnóstico</button>
+    <button class="btn-new" id="btnNewRecognition" onclick="openNewRecognition()" disabled>
+      ✨ Nueva felicitación
+    </button>
+  </div>
+
+</nav>
+
+
+<main class="container" id="panelView">
+
+  <div class="podium-wrap">
+    <div class="section-heading">
+      <div>
+        <h2>Top 3 del reconocimiento</h2>
+        <p>Las personas con más felicitaciones recibidas</p>
+      </div>
+    </div>
+    <div id="podiumContainer">
+      <div class="loading">Cargando…</div>
+    </div>
+  </div>
+
+  <div class="insight-grid">
+
+    <div class="stat-stack">
+      <div class="stat-card">
+        <div class="stat-label">Reconocimientos totales</div>
+        <div class="stat-value" id="totalRecognitions">–</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Este mes</div>
+        <div class="stat-value" id="monthlyRecognitions">–</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Personas reconocidas</div>
+        <div class="stat-value" id="peopleRecognized">–</div>
+      </div>
+    </div>
+
+    <div class="dept-card">
+      <h3>Top 3 departamentos</h3>
+      <div id="deptContainer">
+        <div class="loading" style="padding:10px;">Cargando…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="section-heading">
+    <div>
+      <h2>Personal reconocido</h2>
+      <p>Explora quién ha recibido reconocimientos</p>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="🔎 Buscar por nombre o departamento…" oninput="filterPeople()">
+    <select id="departmentFilter" onchange="filterPeople()">
+      <option value="">Todos los departamentos</option>
+    </select>
+  </div>
+
+  <section id="peopleContainer" class="people-grid">
+    <div class="loading">Cargando personas…</div>
+  </section>
+
+  <div class="activity" id="activitySection" style="display:none;">
+    <hr class="divider">
+    <div class="section-heading">
+      <div><h2>Actividad reciente</h2></div>
+    </div>
+    <div id="activityContainer"></div>
+  </div>
+
+</main>
+
+
+<main class="container" id="adminView" style="display:none;">
+
+  <div class="admin-toolbar">
+    <div>
+      <h2 style="margin:0;font-size:20px;">Administración de personal</h2>
+      <p style="margin:3px 0 0;color:var(--ink-soft);font-size:13.5px;">Alta, baja y edición de las personas del sistema</p>
+    </div>
+    <button class="btn-new" onclick="openAddPerson()">+ Agregar persona</button>
+  </div>
+
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Persona</th>
+          <th>Correo</th>
+          <th>Departamento</th>
+          <th>Reconocimientos</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody">
+        <tr><td colspan="7" class="loading">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+
+<!-- MODAL: Nueva felicitación -->
+<div class="overlay" id="modalNew">
+  <div class="modal">
+
+    <div class="modal-header">
+      <div>
+        <h2 id="newModalTitle">✨ Elige a quién reconocer</h2>
+        <p id="newModalSubtitle">Puedes buscar por nombre o departamento</p>
+      </div>
+      <button class="close-btn" onclick="closeModal('modalNew')">×</button>
+    </div>
+
+    <!-- Paso 1: elegir persona -->
+    <div id="stepSelectPerson">
+      <input type="text" class="modal-search" id="pickSearch" placeholder="🔎 Buscar persona…" oninput="renderPickList()">
+      <div class="pick-list" id="pickListContainer"></div>
+    </div>
+
+    <!-- Paso 2: categoría + mensaje -->
+    <div id="stepCompose" style="display:none;">
+
+      <div class="selected-person" id="selectedPerson"></div>
+      <button class="change-person" onclick="backToSelectPerson()">← Elegir a otra persona</button>
+
+      <div class="field-label">¿Qué quieres reconocer?</div>
+      <div class="categories" id="categoriesContainer"></div>
+
+      <div class="field-label">Tu mensaje</div>
+      <textarea id="message" maxlength="500" placeholder="Escribe un mensaje de reconocimiento…" oninput="updateCharCount()"></textarea>
+      <div class="char-count"><span id="charCount">0</span>/500</div>
+
+      <button class="primary-button" onclick="sendRecognition()">🎉 Enviar reconocimiento</button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- MODAL: Ver felicitación -->
+<div class="overlay" id="modalView">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h2>Felicitación</h2>
+      <button class="close-btn" onclick="closeModal('modalView')">×</button>
+    </div>
+    <div id="celebrationContainer"><div class="loading">Cargando…</div></div>
+  </div>
+</div>
+
+
+<!-- MODAL: Agregar / editar persona (admin) -->
+<div class="overlay" id="modalPerson">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h2 id="personModalTitle">Agregar persona</h2>
+      <button class="close-btn" onclick="closeModal('modalPerson')">×</button>
+    </div>
+
+    <div class="form-grid">
+
+      <div class="full">
+        <label>Nombre completo</label>
+        <input type="text" id="pf_name">
+      </div>
+
+      <div>
+        <label>Correo</label>
+        <input type="email" id="pf_email">
+      </div>
+
+      <div>
+        <label>Departamento</label>
+        <input type="text" id="pf_department">
+      </div>
+
+      <div>
+        <label>Puesto</label>
+        <input type="text" id="pf_jobTitle">
+      </div>
+
+      <div>
+        <label>Foto (URL, opcional)</label>
+        <input type="text" id="pf_photoUrl">
+      </div>
+
+      <div class="full checkbox-row">
+        <input type="checkbox" id="pf_isAdmin">
+        <label style="margin:0;font-weight:600;" for="pf_isAdmin">Es administrador(a) del sistema</label>
+      </div>
+
+    </div>
+
+    <button class="primary-button" onclick="submitPersonForm()">Guardar</button>
+  </div>
+</div>
+
+
+<!-- MODAL: Diagnóstico del sistema -->
+<div class="overlay" id="modalDiagnostics">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h2>Diagnóstico del sistema</h2>
+      <button class="close-btn" onclick="closeModal('modalDiagnostics')">×</button>
+    </div>
+    <div id="diagnosticsContainer"><div class="loading">Ejecutando diagnóstico…</div></div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+
+<script>
+
+  const INITIAL_RECOGNITION_ID = "<?= initialRecognitionId ?>";
+
+  let APP = {
+    currentUser: null,
+    people: [],
+    recognizedPeople: [],
+    departments: [],
+    categories: [],
+    selectedPerson: null,
+    selectedCategory: null,
+    editingPersonId: null
+  };
+
+
+  /* ================= INICIALIZACIÓN ================= */
+
+  // Se dispara en cuanto el HTML está listo…
+  document.addEventListener('DOMContentLoaded', function () { loadApp(); });
+
+  // …y también cuando la ventana termina de cargar por completo (recursos,
+  // iframes, etc.). En Apps Script, la página real vive dentro de un
+  // iframe "sandbox" (por eso los avisos de consola sobre
+  // "allow-scripts/allow-same-origin" y "Permissions-Policy": son ruido
+  // normal del entorno de Google, no errores de esta app). Ese puente
+  // a veces no está listo en el instante exacto de DOMContentLoaded, y si
+  // google.script.run se llama demasiado pronto, la llamada se puede
+  // perder sin disparar ni successHandler ni failureHandler, dejando los
+  // "Cargando…" girando para siempre. Este segundo disparo, más el
+  // watchdog de abajo, son la red de seguridad contra ese caso.
+  window.addEventListener('load', function () {
+    if (!APP.dataLoaded) loadApp();
+  });
+
+  APP.dataLoaded = false;
+  let _loadAttempt = 0;
+  let _loadWatchdog = null;
+
+  function loadApp() {
+
+    _loadAttempt++;
+    const attempt = _loadAttempt;
+
+    clearTimeout(_loadWatchdog);
+
+    // Si en 12 segundos no hay respuesta (ni éxito ni error), algo se
+    // perdió en el puente cliente-servidor: lo mostramos y reintentamos
+    // automáticamente (máximo 3 veces) en vez de dejar los spinners
+    // girando indefinidamente.
+    _loadWatchdog = setTimeout(function () {
+
+      if (APP.dataLoaded || attempt !== _loadAttempt) return;
+
+      if (attempt < 3) {
+        console.warn('getAppData() no respondió a tiempo (intento ' + attempt + '). Reintentando…');
+        loadApp();
+      } else {
+        showLoadError({
+          message: 'El servidor tardó demasiado en responder. Revisa tu conexión, ' +
+                    'desactiva extensiones del navegador que bloqueen scripts/cookies ' +
+                    'de terceros, o usa el botón de Diagnóstico.'
+        });
+      }
+    }, 12000);
+
+    try {
+
+      google.script.run
+        .withSuccessHandler(function (data) {
+          clearTimeout(_loadWatchdog);
+          APP.dataLoaded = true;
+          initializeApp(data);
+        })
+        .withFailureHandler(function (error) {
+          clearTimeout(_loadWatchdog);
+          showLoadError(error);
+        })
+        .getAppData();
+
+    } catch (syncError) {
+      // Si google.script.run ni siquiera existe todavía (carga muy
+      // temprana) o truena de forma síncrona, lo capturamos aquí también.
+      clearTimeout(_loadWatchdog);
+      showLoadError({ message: 'No se pudo iniciar la conexión con el servidor: ' + syncError.message });
+    }
+  }
+
+  /**
+   * Si getAppData() falla (o si algo truena al pintar la interfaz), no
+   * dejamos los "Cargando…" girando para siempre: mostramos el error real
+   * en cada sección visible y un botón de diagnóstico para encontrar la
+   * causa exacta.
+   */
+  function showLoadError(error) {
+
+    const message = (error && error.message) || 'Ocurrió un error al cargar los datos.';
+
+    const html = `
+      <div class="loading" style="color:var(--maroon);">
+        ⚠️ ${escapeHtml(message)}<br>
+        <button class="link-btn" style="margin-top:10px;" onclick="loadApp()">Reintentar</button>
+        <button class="link-btn" onclick="openDiagnostics()">Ver diagnóstico</button>
+      </div>
+    `;
+
+    const podium = document.getElementById('podiumContainer');
+    const people = document.getElementById('peopleContainer');
+    const dept = document.getElementById('deptContainer');
+    const chip = document.getElementById('sessionChip');
+    const adminBody = document.getElementById('adminTableBody');
+
+    if (podium) podium.innerHTML = html;
+    if (people) people.innerHTML = html;
+    if (dept) dept.innerHTML = '<div class="dept-empty">No se pudieron cargar los departamentos.</div>';
+    if (chip) chip.innerHTML = '⚠️ Error al cargar sesión';
+    if (adminBody) adminBody.innerHTML = '<tr><td colspan="7" class="loading">No se pudo cargar.</td></tr>';
+
+    console.error('Fallo al cargar datos del sistema:', error);
+    showError(error);
+  }
+
+  function initializeApp(data) {
+
+    // Todo el pintado va envuelto en try/catch: si una sola sección
+    // truena por un dato inesperado, antes se detenía TODA la función a
+    // medias (dejando, por ejemplo, "Cargando personas…" fijo) sin que se
+    // viera ningún mensaje. Ahora se reporta el error real y se puede
+    // reintentar.
+    try {
+
+      if (!data) {
+        throw new Error('El servidor respondió sin datos (getAppData devolvió vacío).');
+      }
+
+      APP.currentUser = data.currentUser || { email: '', registered: false, isAdmin: false };
+      APP.people = data.people || [];
+      APP.recognizedPeople = data.recognizedPeople || [];
+      APP.departments = data.departments || [];
+      APP.categories = data.categories || [];
+
+      renderSession();
+      renderStats(data.stats);
+      renderPodium(data.topPeople || []);
+      renderDepartments(data.topDepartments || []);
+      renderDepartmentFilter();
+      renderPeople(APP.recognizedPeople);
+      renderActivity(data.recentRecognitions || []);
+
+      if (INITIAL_RECOGNITION_ID) {
+        viewRecognition(INITIAL_RECOGNITION_ID);
+      }
+
+    } catch (renderError) {
+      console.error('Error al pintar la interfaz con los datos recibidos:', renderError, data);
+      showLoadError({ message: 'Los datos llegaron, pero hubo un error al mostrarlos: ' + renderError.message });
+    }
+  }
+
+
+  /* ================= SESIÓN ================= */
+
+  function renderSession() {
+
+    const chip = document.getElementById('sessionChip');
+    const btnNew = document.getElementById('btnNewRecognition');
+    const tabAdmin = document.getElementById('tabAdmin');
+
+    if (!APP.currentUser || !APP.currentUser.registered) {
+
+      chip.innerHTML = '⚠️ Cuenta no registrada';
+      btnNew.disabled = true;
+      tabAdmin.style.display = 'none';
+      return;
+    }
+
+    chip.innerHTML = 'Reconociendo como <strong>' + escapeHtml(APP.currentUser.name) + '</strong>';
+    btnNew.disabled = false;
+
+    tabAdmin.style.display = APP.currentUser.isAdmin ? 'inline-block' : 'none';
+  }
+
+
+  /* ================= VISTAS (Panel / Admin) ================= */
+
+  function switchView(view) {
+
+    const isPanel = view === 'panel';
+
+    document.getElementById('panelView').style.display = isPanel ? 'block' : 'none';
+    document.getElementById('adminView').style.display = isPanel ? 'none' : 'block';
+
+    document.getElementById('tabPanel').classList.toggle('active', isPanel);
+    document.getElementById('tabAdmin').classList.toggle('active', !isPanel);
+
+    if (!isPanel) loadAdminPeople();
+  }
+
+
+  /* ================= ESTADÍSTICAS ================= */
+
+  function renderStats(stats) {
+
+    stats = stats || {};
+
+    document.getElementById('totalRecognitions').textContent = stats.total || 0;
+    document.getElementById('monthlyRecognitions').textContent = stats.thisMonth || 0;
+    document.getElementById('peopleRecognized').textContent = stats.peopleRecognized || 0;
+  }
+
+
+  /* ================= PODIO TOP 3 ================= */
+
+  function renderPodium(topPeople) {
+
+    const container = document.getElementById('podiumContainer');
+
+    if (!topPeople.length) {
+      container.innerHTML = '<div class="podium-empty">Aún no hay reconocimientos suficientes para mostrar un top 3. ¡Sé la primera persona en reconocer a alguien!</div>';
+      return;
+    }
+
+    const order = [1, 0, 2]; // 2do, 1ro, 3ro (visual de podio)
+
+    container.innerHTML = '<div class="podium">' +
+      order
+        .filter(i => topPeople[i])
+        .map(i => {
+
+          const person = topPeople[i];
+          const rank = i + 1;
+
+          return `
+            <div class="podium-card rank-${rank}">
+              <div class="podium-rank">${rank}</div>
+              <img class="podium-photo" src="${escapeHtml(person.photoUrl)}" onerror="this.style.display='none'">
+              <div class="podium-name">${escapeHtml(person.name)}</div>
+              <div class="podium-dept">${escapeHtml(person.department)}</div>
+              <div class="podium-count">🏆 ${person.recognitions}</div>
+            </div>
+          `;
+
+        }).join('') +
+      '</div>';
+  }
+
+
+  /* ================= TOP DEPARTAMENTOS ================= */
+
+  function renderDepartments(topDepartments) {
+
+    const container = document.getElementById('deptContainer');
+
+    if (!topDepartments.length) {
+      container.innerHTML = '<div class="dept-empty">Aún no hay datos de departamentos.</div>';
+      return;
+    }
+
+    const max = Math.max(...topDepartments.map(d => d.count));
+
+    container.innerHTML = topDepartments.map((d, index) => `
+      <div class="dept-row">
+        <div class="dept-rank">${index + 1}</div>
+        <div class="dept-name">${escapeHtml(d.department)}</div>
+        <div class="dept-bar-track">
+          <div class="dept-bar-fill" style="width:${Math.round((d.count / max) * 100)}%"></div>
+        </div>
+        <div class="dept-count">${d.count}</div>
+      </div>
+    `).join('');
+  }
+
+
+  /* ================= FILTRO DE DEPARTAMENTO ================= */
+
+  function renderDepartmentFilter() {
+
+    const select = document.getElementById('departmentFilter');
+
+    APP.departments.forEach(dept => {
+      const opt = document.createElement('option');
+      opt.value = dept;
+      opt.textContent = dept;
+      select.appendChild(opt);
+    });
+  }
+
+
+  /* ================= GALERÍA DE PERSONAS ================= */
+
+  function renderPeople(people) {
+
+    const container = document.getElementById('peopleContainer');
+
+    if (!people.length) {
+      container.innerHTML = '<div class="empty-state">No se encontraron personas con esos filtros.</div>';
+      return;
+    }
+
+    container.innerHTML = people.map(person => `
+      <div class="person-card" onclick="openRecognitionForPerson('${escapeJs(person.id)}')">
+        <img class="person-photo" src="${escapeHtml(person.photoUrl)}" onerror="this.style.display='none'">
+        <div class="person-name">${escapeHtml(person.name)}</div>
+        <div class="person-department">${escapeHtml(person.department)}</div>
+        <div class="person-count">🏆 ${person.recognitions} reconocimientos</div>
+      </div>
+    `).join('');
+  }
+
+  function filterPeople() {
+
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    const dept = document.getElementById('departmentFilter').value;
+
+    const filtered = APP.recognizedPeople.filter(person => {
+
+      const matchesQuery =
+        !query ||
+        String(person.name).toLowerCase().includes(query) ||
+        String(person.department).toLowerCase().includes(query);
+
+      const matchesDept = !dept || person.department === dept;
+
+      return matchesQuery && matchesDept;
+    });
+
+    renderPeople(filtered);
+  }
+
+
+  /* ================= ACTIVIDAD RECIENTE ================= */
+
+  function renderActivity(recognitions) {
+
+    const section = document.getElementById('activitySection');
+    const container = document.getElementById('activityContainer');
+
+    if (!recognitions.length) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+
+    container.innerHTML = recognitions.map(item => `
+      <div class="activity-item">
+        <div class="activity-emoji">🎉</div>
+        <div>
+          <div class="activity-text"><b>${escapeHtml(item.fromName)}</b> reconoció a <b>${escapeHtml(item.toName)}</b> por ${escapeHtml(item.category)}</div>
+          <div class="activity-time">${formatTimestamp(item.timestamp)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function formatTimestamp(value) {
+
+    try {
+      const date = new Date(value);
+      return date.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  }
+
+
+  /* ================= NUEVA FELICITACIÓN ================= */
+
+  function openNewRecognition() {
+
+    if (!APP.currentUser || !APP.currentUser.registered) {
+      showToast('Tu cuenta no está registrada en el sistema.');
+      return;
+    }
+
+    APP.selectedPerson = null;
+    APP.selectedCategory = null;
+
+    document.getElementById('pickSearch').value = '';
+    renderPickList();
+
+    document.getElementById('newModalTitle').textContent = '✨ Elige a quién reconocer';
+    document.getElementById('newModalSubtitle').textContent = 'Puedes buscar por nombre o departamento';
+    document.getElementById('stepSelectPerson').style.display = 'block';
+    document.getElementById('stepCompose').style.display = 'none';
+
+    openModal('modalNew');
+  }
+
+  function renderPickList() {
+
+    const query = document.getElementById('pickSearch').value.toLowerCase().trim();
+
+    const candidates = APP.people.filter(person => {
+
+      if (APP.currentUser && String(person.id) === String(APP.currentUser.id)) return false;
+
+      return !query ||
+        String(person.name).toLowerCase().includes(query) ||
+        String(person.department).toLowerCase().includes(query);
+    });
+
+    const container = document.getElementById('pickListContainer');
+
+    if (!candidates.length) {
+      container.innerHTML = '<div class="loading">No se encontró a nadie con ese nombre.</div>';
+      return;
+    }
+
+    container.innerHTML = candidates.map(person => `
+      <div class="pick-row" onclick="choosePerson('${escapeJs(person.id)}')">
+        <img src="${escapeHtml(person.photoUrl)}" onerror="this.style.visibility='hidden'">
+        <div>
+          <div class="pick-name">${escapeHtml(person.name)}</div>
+          <div class="pick-dept">${escapeHtml(person.department)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function choosePerson(id) {
+
+    const person = APP.people.find(p => String(p.id) === String(id));
+    if (!person) return;
+
+    selectPersonForRecognition(person);
+  }
+
+  /**
+   * Abre el modal directamente en el paso 2, con la persona
+   * de la tarjeta de la galería ya preseleccionada.
+   */
+  function openRecognitionForPerson(id) {
+
+    if (!APP.currentUser || !APP.currentUser.registered) {
+      showToast('Tu cuenta no está registrada en el sistema.');
+      return;
+    }
+
+    const person = APP.people.find(p => String(p.id) === String(id));
+    if (!person) return;
+
+    if (APP.currentUser && String(person.id) === String(APP.currentUser.id)) {
+      showToast('No puedes reconocerte a ti mismo(a) 🙂');
+      return;
+    }
+
+    openModal('modalNew');
+    selectPersonForRecognition(person);
+  }
+
+  function selectPersonForRecognition(person) {
+
+    APP.selectedPerson = person;
+    APP.selectedCategory = null;
+
+    document.getElementById('selectedPerson').innerHTML = `
+      <img src="${escapeHtml(person.photoUrl)}" onerror="this.style.display='none'">
+      <h3>${escapeHtml(person.name)}</h3>
+      <p>${escapeHtml(person.department)}</p>
+    `;
+
+    renderCategories();
+
+    document.getElementById('message').value = '';
+    updateCharCount();
+
+    document.getElementById('newModalTitle').textContent = '🎉 Reconocer';
+    document.getElementById('newModalSubtitle').textContent = 'Elige una categoría y escribe tu mensaje';
+    document.getElementById('stepSelectPerson').style.display = 'none';
+    document.getElementById('stepCompose').style.display = 'block';
+  }
+
+  function backToSelectPerson() {
+
+    document.getElementById('newModalTitle').textContent = '✨ Elige a quién reconocer';
+    document.getElementById('newModalSubtitle').textContent = 'Puedes buscar por nombre o departamento';
+    document.getElementById('stepSelectPerson').style.display = 'block';
+    document.getElementById('stepCompose').style.display = 'none';
+  }
+
+
+  /* ================= CATEGORÍAS Y MENSAJE ================= */
+
+  function renderCategories() {
+
+    document.getElementById('categoriesContainer').innerHTML = APP.categories.map(category => `
+      <div class="category" data-id="${escapeHtml(category.id)}" onclick="selectCategory('${escapeJs(category.id)}')">
+        <span class="category-emoji">${escapeHtml(category.emoji)}</span>
+        <span class="category-name">${escapeHtml(category.name)}</span>
+      </div>
+    `).join('');
+  }
+
+  function selectCategory(id) {
+
+    APP.selectedCategory = APP.categories.find(c => String(c.id) === String(id));
+
+    document.querySelectorAll('.category').forEach(el => {
+      el.classList.toggle('selected', el.dataset.id === String(id));
+    });
+
+    loadMessages(id);
+  }
+
+  function loadMessages(categoryId) {
+
+    google.script.run
+      .withSuccessHandler(messages => {
+
+        if (!messages.length) return;
+
+        document.getElementById('message').placeholder = messages[0].message;
+      })
+      .getMessages(categoryId);
+  }
+
+  function updateCharCount() {
+
+    const value = document.getElementById('message').value;
+    document.getElementById('charCount').textContent = value.length;
+  }
+
+
+  /* ================= ENVIAR RECONOCIMIENTO ================= */
+
+  function sendRecognition() {
+
+    if (!APP.selectedPerson) {
+      showToast('Selecciona una persona.');
+      return;
+    }
+
+    if (!APP.selectedCategory) {
+      showToast('Selecciona una categoría.');
+      return;
+    }
+
+    const message = document.getElementById('message').value.trim();
+
+    if (!message) {
+      showToast('Escribe un mensaje.');
+      return;
+    }
+
+    const data = {
+      personId: APP.selectedPerson.id,
+      categoryId: APP.selectedCategory.id,
+      message: message
+    };
+
+    const button = document.querySelector('#stepCompose .primary-button');
+    button.disabled = true;
+    button.textContent = 'Enviando…';
+
+    google.script.run
+      .withSuccessHandler(recognitionSent)
+      .withFailureHandler(err => {
+        button.disabled = false;
+        button.textContent = '🎉 Enviar reconocimiento';
+        showError(err);
+      })
+      .createRecognition(data);
+  }
+
+  function recognitionSent(result) {
+
+    closeModal('modalNew');
+    showToast(`🎉 ¡Reconocimiento enviado a ${result.personName}!`);
+
+    const button = document.querySelector('#stepCompose .primary-button');
+    button.disabled = false;
+    button.textContent = '🎉 Enviar reconocimiento';
+
+    setTimeout(loadApp, 800);
+  }
+
+
+  /* ================= VER FELICITACIÓN (deep link) ================= */
+
+  function viewRecognition(id) {
+
+    openModal('modalView');
+
+    document.getElementById('celebrationContainer').innerHTML = '<div class="loading">Cargando…</div>';
+
+    google.script.run
+      .withSuccessHandler(renderCelebration)
+      .withFailureHandler(showError)
+      .getRecognitionById(id);
+  }
+
+  function renderCelebration(recognition) {
+
+    const container = document.getElementById('celebrationContainer');
+
+    if (!recognition) {
+      container.innerHTML = '<div class="loading">No se encontró esa felicitación.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="celebration-view">
+        <div class="celebration-emoji">${escapeHtml(recognition.emoji)}</div>
+        <img src="${escapeHtml(recognition.toPhotoUrl)}" onerror="this.style.display='none'">
+        <h3>${escapeHtml(recognition.toName)}</h3>
+        <div class="cat">${escapeHtml(recognition.category)}</div>
+        <div class="celebration-message">"${escapeHtml(recognition.message)}"</div>
+        <div class="celebration-from">De parte de ${escapeHtml(recognition.fromName)} · ${formatTimestamp(recognition.timestamp)}</div>
+      </div>
+    `;
+  }
+
+
+  /* ================= ADMINISTRACIÓN ================= */
+
+  function loadAdminPeople() {
+
+    document.getElementById('adminTableBody').innerHTML = '<tr><td colspan="7" class="loading">Cargando…</td></tr>';
+
+    google.script.run
+      .withSuccessHandler(renderAdminTable)
+      .withFailureHandler(showError)
+      .adminListPeople();
+  }
+
+  function renderAdminTable(people) {
+
+    const body = document.getElementById('adminTableBody');
+
+    if (!people.length) {
+      body.innerHTML = '<tr><td colspan="7" class="loading">No hay personal registrado.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = people.map(person => `
+      <tr class="${person.active ? '' : 'inactive'}">
+        <td>
+          <div class="row-person">
+            <img src="${escapeHtml(person.photoUrl)}" onerror="this.style.visibility='hidden'">
+            <div>
+              <div style="font-weight:700;">${escapeHtml(person.name)}</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtml(person.jobTitle || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td>${escapeHtml(person.email)}</td>
+        <td>${escapeHtml(person.department)}</td>
+        <td>${person.recognitions}</td>
+        <td>${person.isAdmin ? '<span class="badge admin">Admin</span>' : '<span class="badge">Colaborador</span>'}</td>
+        <td>
+          <button class="toggle-btn ${person.active ? 'is-active' : ''}" onclick="toggleActive('${escapeJs(person.id)}', ${person.active})">
+            ${person.active ? '● Activo' : '○ Inactivo'}
+          </button>
+        </td>
+        <td><button class="link-btn" onclick='openEditPerson(${JSON.stringify(person)})'>Editar</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function toggleActive(id, currentlyActive) {
+
+    google.script.run
+      .withSuccessHandler(() => {
+        showToast(currentlyActive ? 'Persona dada de baja.' : 'Persona reactivada.');
+        loadAdminPeople();
+        loadApp();
+      })
+      .withFailureHandler(showError)
+      .adminSetActive(id, !currentlyActive);
+  }
+
+  function openAddPerson() {
+
+    APP.editingPersonId = null;
+
+    document.getElementById('personModalTitle').textContent = 'Agregar persona';
+    document.getElementById('pf_name').value = '';
+    document.getElementById('pf_email').value = '';
+    document.getElementById('pf_department').value = '';
+    document.getElementById('pf_jobTitle').value = '';
+    document.getElementById('pf_photoUrl').value = '';
+    document.getElementById('pf_isAdmin').checked = false;
+
+    openModal('modalPerson');
+  }
+
+  function openEditPerson(person) {
+
+    APP.editingPersonId = person.id;
+
+    document.getElementById('personModalTitle').textContent = 'Editar persona';
+    document.getElementById('pf_name').value = person.name || '';
+    document.getElementById('pf_email').value = person.email || '';
+    document.getElementById('pf_department').value = person.department || '';
+    document.getElementById('pf_jobTitle').value = person.jobTitle || '';
+    document.getElementById('pf_photoUrl').value = person.photoUrl || '';
+    document.getElementById('pf_isAdmin').checked = !!person.isAdmin;
+
+    openModal('modalPerson');
+  }
+
+  function submitPersonForm() {
+
+    const data = {
+      name: document.getElementById('pf_name').value,
+      email: document.getElementById('pf_email').value,
+      department: document.getElementById('pf_department').value,
+      jobTitle: document.getElementById('pf_jobTitle').value,
+      photoUrl: document.getElementById('pf_photoUrl').value,
+      isAdmin: document.getElementById('pf_isAdmin').checked
+    };
+
+    if (APP.editingPersonId) {
+
+      google.script.run
+        .withSuccessHandler(() => {
+          closeModal('modalPerson');
+          showToast('Persona actualizada.');
+          loadAdminPeople();
+        })
+        .withFailureHandler(showError)
+        .adminUpdatePerson(APP.editingPersonId, data);
+
+    } else {
+
+      google.script.run
+        .withSuccessHandler(() => {
+          closeModal('modalPerson');
+          showToast('Persona agregada.');
+          loadAdminPeople();
+        })
+        .withFailureHandler(showError)
+        .adminAddPerson(data);
+    }
+  }
+
+
+  /* ================= DIAGNÓSTICO ================= */
+
+  function openDiagnostics() {
+
+    document.getElementById('diagnosticsContainer').innerHTML = '<div class="loading">Ejecutando diagnóstico…</div>';
+    openModal('modalDiagnostics');
+
+    google.script.run
+      .withSuccessHandler(renderDiagnostics)
+      .withFailureHandler(err => {
+        document.getElementById('diagnosticsContainer').innerHTML =
+          '<div class="loading">No se pudo ejecutar el diagnóstico: ' + escapeHtml((err && err.message) || '') + '</div>';
+      })
+      .diagnoseSystem();
+  }
+
+  function renderDiagnostics(report) {
+
+    const container = document.getElementById('diagnosticsContainer');
+
+    if (!report.spreadsheetConnected) {
+      container.innerHTML = `
+        <p><strong>❌ El script no está conectado a ninguna hoja de cálculo.</strong></p>
+        <p style="color:var(--ink-soft);font-size:13px;">${escapeHtml(report.spreadsheetError || '')}</p>
+        <p style="font-size:13px;">Revisa <code>CONFIG.SPREADSHEET_ID</code> en Code.gs (instrucciones en el comentario junto a esa línea).</p>
+      `;
+      return;
+    }
+
+    const rowsSheets = (report.sheets || []).map(s => {
+
+      let status = '✅';
+      let detail = `${s.rowCount ?? 0} fila(s)`;
+
+      if (!s.exists) { status = '❌'; detail = 'La pestaña no existe.'; }
+      else if (s.error) { status = '❌'; detail = s.error; }
+      else if (s.headersMatch === false) { status = '⚠️'; detail = 'Los encabezados no coinciden con lo esperado.'; }
+
+      return `
+        <tr>
+          <td>${status} <strong>${escapeHtml(s.name)}</strong></td>
+          <td style="color:var(--ink-soft);font-size:12.5px;">${escapeHtml(detail)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <p>✅ Conectado a: <strong>${escapeHtml(report.spreadsheetName)}</strong></p>
+      <p>Sesión detectada: <strong>${escapeHtml(report.sessionEmail || '(sin correo — revisa el modo de implementación)')}</strong>
+        ${report.userRegistered ? '✅ registrado en Personal' : '⚠️ no encontrado en Personal'}
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;">
+        <tbody>${rowsSheets}</tbody>
+      </table>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:14px;">
+        Si alguna pestaña muestra ❌ o ⚠️, revisa que el nombre y los encabezados
+        coincidan exactamente con los del archivo Celebration_System entregado.
+      </p>
+    `;
+  }
+
+
+  /* ================= MODALES / UTILIDADES UI ================= */
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function showToast(message) {
+
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.style.display = 'block';
+
+    setTimeout(() => { toast.style.display = 'none'; }, 3800);
+  }
+
+  function showError(error) {
+
+    console.error(error);
+    showToast((error && error.message) || 'Ocurrió un error.');
+  }
+
+  function escapeHtml(value) {
+
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeJs(value) {
+
+    return String(value ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'");
+  }
+
+</script>
+
+</body>
+
+</html>

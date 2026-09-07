@@ -1,0 +1,1178 @@
+/*******************************************************
+ * KUDOS - SISTEMA DE RECONOCIMIENTOS
+ * Google Apps Script - Backend
+ *
+ * V2.0
+ *
+ * Arquitectura:
+ *  - Configuración centralizada
+ *  - Acceso a datos (Sheets)
+ *  - Sesión / control de acceso
+ *  - Validaciones
+ *  - Reconocimientos (crear, listar, estadísticas)
+ *  - Notificaciones por correo
+ *  - Administración (alta / baja de personal)
+ *
+ * Diseñado para ser escalable: cada bloque de
+ * funciones puede crecer (nuevas hojas, nuevos
+ * reportes, nuevos permisos) sin romper el resto.
+ *******************************************************/
+
+const CONFIG = {
+
+  APP_NAME: 'Kudos',
+  APP_TAGLINE: 'Reconocimiento interno',
+
+  // Solo es necesario llenar esto si el proyecto de Apps Script NO está
+  // vinculado (contenedor) a la hoja de cálculo -es decir, si lo creaste
+  // desde script.google.com en vez de abrirlo desde
+  // Extensiones > Apps Script dentro del propio Google Sheets-.
+  // Pega aquí el ID de la hoja (la parte de la URL entre /d/ y /edit):
+  // https://docs.google.com/spreadsheets/d/ESTE_ES_EL_ID/edit
+  SPREADSHEET_ID: '',
+
+  SHEETS: {
+    PERSONAL: 'Personal',
+    RECOGNITIONS: 'Recognitions',
+    CATEGORIES: 'Categories',
+    MESSAGES: 'Messages'
+  },
+
+  // Columnas esperadas por hoja. Se usan tanto para
+  // crear las hojas desde cero (setupSystem) como
+  // para validar que una hoja existente tiene la
+  // estructura correcta.
+  HEADERS: {
+    PERSONAL: [
+      'ID_Person', 'Name', 'Email', 'Department',
+      'Photo_URL', 'Job_Title', 'Active',
+      'Contador_Felicitaciones', 'Is_Admin'
+    ],
+    RECOGNITIONS: [
+      'Recognition_ID', 'Timestamp',
+      'From_ID', 'From_Email', 'From_Name',
+      'To_ID', 'To_Name', 'Department',
+      'Category_ID', 'Category', 'Message'
+    ],
+    CATEGORIES: [
+      'Category_ID', 'Category', 'Emoji',
+      'Description', 'Active'
+    ],
+    MESSAGES: [
+      'Message_ID', 'Category_ID', 'Message', 'Active'
+    ]
+  },
+
+  // Avatar por defecto embebido en SVG: no depende de ningún servicio
+  // externo (via.placeholder.com, por ejemplo, dejó de funcionar y
+  // muchas redes corporativas bloquean dominios externos de imágenes).
+  DEFAULT_PHOTO:
+    'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<rect width="100" height="100" fill="#161A31"/>' +
+      '<circle cx="50" cy="38" r="18" fill="#FCFCFC"/>' +
+      '<path d="M18 88c4-22 22-32 32-32s28 10 32 32" fill="#FCFCFC"/>' +
+      '</svg>'
+    ),
+
+  MAX_MESSAGE_LENGTH: 500,
+
+  DATE_FORMAT: 'dd/MM/yyyy HH:mm',
+
+  // Cuántas personas se muestran en los rankings (top).
+  TOP_PEOPLE_LIMIT: 3,
+  TOP_DEPARTMENTS_LIMIT: 3,
+
+  // Paleta corporativa (solo como referencia para el
+  // correo HTML; el diseño principal vive en Index.html)
+  COLORS: {
+    BACKGROUND: '#FCFCFC',
+    PRIMARY: '#911234',
+    DARK: '#161A31'
+  }
+};
+
+
+/* =====================================================
+ *  PUNTO DE ENTRADA
+ * ===================================================== */
+
+/**
+ * Punto de entrada de la aplicación web.
+ * Si la URL trae ?id=REC-xxxx (por ejemplo, desde el
+ * botón del correo de notificación), se inyecta ese id
+ * en la plantilla para que el front-end abra directamente
+ * la vista de esa felicitación.
+ */
+function doGet(e) {
+
+  const template =
+    HtmlService.createTemplateFromFile('Index');
+
+  template.initialRecognitionId =
+    (e && e.parameter && e.parameter.id) || '';
+
+  return template
+    .evaluate()
+    .setTitle(CONFIG.APP_NAME)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+
+/**
+ * Permite incluir archivos HTML adicionales (parciales).
+ */
+function include(filename) {
+
+  return HtmlService
+    .createHtmlOutputFromFile(filename)
+    .getContent();
+}
+
+
+/* =====================================================
+ *  SETUP / INICIALIZACIÓN
+ * ===================================================== */
+
+/**
+ * Inicializa las hojas necesarias si no existen.
+ * Segura de ejecutar varias veces: nunca borra datos.
+ */
+function setupSystem() {
+
+  const ss = getSpreadsheet();
+
+  createSheetIfMissing(ss, CONFIG.SHEETS.PERSONAL, CONFIG.HEADERS.PERSONAL);
+  createSheetIfMissing(ss, CONFIG.SHEETS.RECOGNITIONS, CONFIG.HEADERS.RECOGNITIONS);
+  createSheetIfMissing(ss, CONFIG.SHEETS.CATEGORIES, CONFIG.HEADERS.CATEGORIES);
+  createSheetIfMissing(ss, CONFIG.SHEETS.MESSAGES, CONFIG.HEADERS.MESSAGES);
+
+  seedCategories();
+
+  return {
+    success: true,
+    message: 'Sistema inicializado correctamente.'
+  };
+}
+
+
+/**
+ * Crea una hoja si no existe, con encabezados en negrita
+ * y congelados en la primera fila.
+ */
+function createSheetIfMissing(ss, name, headers) {
+
+  let sheet = ss.getSheetByName(name);
+
+  if (!sheet) {
+
+    sheet = ss.insertSheet(name);
+
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+
+/**
+ * Inserta categorías iniciales (solo si la hoja está vacía).
+ */
+function seedCategories() {
+
+  const sheet = getSheet(CONFIG.SHEETS.CATEGORIES);
+
+  if (sheet.getLastRow() > 1) return;
+
+  const categories = [
+    [1, 'Trabajo en equipo', '🤝', 'Reconoce colaboración y apoyo.', true],
+    [2, 'Excelencia', '🏆', 'Reconoce resultados sobresalientes.', true],
+    [3, 'Innovación', '💡', 'Reconoce nuevas ideas y mejoras.', true],
+    [4, 'Liderazgo', '⭐', 'Reconoce liderazgo y compromiso.', true],
+    [5, 'Calidad', '🎯', 'Reconoce atención y enfoque en calidad.', true],
+    [6, 'Iniciativa', '🚀', 'Reconoce proactividad.', true],
+    [7, 'Actitud positiva', '☀️', 'Reconoce energía y actitud.', true],
+    [8, 'Apoyo', '💙', 'Reconoce ayuda a compañeros.', true]
+  ];
+
+  sheet.getRange(2, 1, categories.length, categories[0].length).setValues(categories);
+}
+
+
+/* =====================================================
+ *  ACCESO A DATOS - LECTURA BASE
+ * ===================================================== */
+
+/**
+ * Obtiene la hoja de cálculo activa. Si el proyecto de Apps Script está
+ * vinculado (contenedor) a un Google Sheets, esto funciona directo.
+ * Si es un proyecto independiente (creado desde script.google.com),
+ * getActiveSpreadsheet() devuelve null; en ese caso se usa
+ * CONFIG.SPREADSHEET_ID como respaldo.
+ *
+ * Esta es la causa más común de "el diseño carga pero los datos no":
+ * el script no está apuntando a ninguna hoja de cálculo.
+ */
+function getSpreadsheet() {
+
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+
+  if (CONFIG.SPREADSHEET_ID) {
+
+    try {
+      return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    } catch (err) {
+      throw new Error(
+        'No se pudo abrir la hoja de cálculo con el ID configurado en ' +
+        'CONFIG.SPREADSHEET_ID. Verifica que el ID sea correcto y que ' +
+        'esta cuenta tenga acceso a esa hoja.'
+      );
+    }
+  }
+
+  throw new Error(
+    'El script no está vinculado a ninguna hoja de cálculo. Si creaste ' +
+    'este proyecto desde Extensiones > Apps Script dentro de tu Google ' +
+    'Sheets, este error no debería aparecer; si lo creaste como proyecto ' +
+    'independiente, pega el ID de tu hoja en CONFIG.SPREADSHEET_ID (arriba ' +
+    'del archivo Code.gs) y vuelve a implementar la aplicación web.'
+  );
+}
+
+
+/**
+ * Obtiene una hoja por nombre. Lanza error si no existe
+ * (evita fallos silenciosos difíciles de depurar).
+ */
+function getSheet(name) {
+
+  const sheet = getSpreadsheet().getSheetByName(name);
+
+  if (!sheet) {
+    throw new Error(
+      `No existe la hoja "${name}" en la hoja de cálculo conectada. ` +
+      'Revisa que el nombre de la pestaña sea exactamente ese ' +
+      '(mayúsculas y espacios incluidos), o ejecuta setupSystem().'
+    );
+  }
+
+  return sheet;
+}
+
+
+/**
+ * Convierte una fila (array) en un objeto usando los
+ * encabezados como llaves.
+ */
+function rowToObject(headers, row) {
+
+  const obj = {};
+
+  headers.forEach((header, index) => {
+    obj[header] = row[index];
+  });
+
+  return obj;
+}
+
+
+/**
+ * Lee una hoja completa y la devuelve como arreglo de
+ * objetos (usando la primera fila como encabezados).
+ */
+function readSheetAsObjects(sheetName) {
+
+  const sheet = getSheet(sheetName);
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length <= 1) return [];
+
+  const headers = values.shift();
+
+  return values.map(row => rowToObject(headers, row));
+}
+
+
+/**
+ * ¿El valor representa "verdadero"? Soporta booleanos
+ * reales de Sheets y strings "TRUE"/"FALSE".
+ */
+function isTruthy(value) {
+
+  return (
+    value === true ||
+    String(value).trim().toUpperCase() === 'TRUE'
+  );
+}
+
+
+/**
+ * ¿El valor representa "activo"? Un campo vacío se
+ * interpreta como activo por compatibilidad con datos
+ * antiguos que no tenían la columna.
+ */
+function isActiveValue(value) {
+
+  return (
+    value === undefined ||
+    value === '' ||
+    isTruthy(value)
+  );
+}
+
+
+/* =====================================================
+ *  DIAGNÓSTICO
+ * ===================================================== */
+
+/**
+ * Revisa, paso a paso, todo lo que suele romper la carga de datos:
+ * conexión con la hoja de cálculo, existencia y encabezados de cada
+ * pestaña, cantidad de filas, y si el correo de la sesión actual
+ * está dado de alta en Personal. Se puede ejecutar manualmente desde
+ * el editor de Apps Script (Ejecutar > diagnoseSystem, luego Ver > 
+ * Registros) o desde el botón "Diagnóstico" de la propia interfaz.
+ */
+function diagnoseSystem() {
+
+  const report = {
+    spreadsheetConnected: false,
+    spreadsheetName: '',
+    sessionEmail: '',
+    userRegistered: false,
+    sheets: []
+  };
+
+  // 1) ¿Hay hoja de cálculo conectada?
+  try {
+    const ss = getSpreadsheet();
+    report.spreadsheetConnected = true;
+    report.spreadsheetName = ss.getName();
+  } catch (err) {
+    report.spreadsheetError = err.message;
+    return report; // sin hoja conectada, el resto no aplica
+  }
+
+  // 2) Correo de la sesión actual
+  report.sessionEmail = getSessionEmail();
+
+  // 3) Cada pestaña esperada: ¿existe?, ¿encabezados correctos?, ¿cuántas filas?
+  Object.keys(CONFIG.SHEETS).forEach(key => {
+
+    const sheetName = CONFIG.SHEETS[key];
+    const expectedHeaders = CONFIG.HEADERS[key] || [];
+    const entry = { name: sheetName, exists: false };
+
+    try {
+
+      const sheet = getSpreadsheet().getSheetByName(sheetName);
+
+      entry.exists = !!sheet;
+
+      if (sheet) {
+
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        entry.rowCount = Math.max(0, lastRow - 1);
+
+        const actualHeaders = lastRow > 0
+          ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String)
+          : [];
+
+        entry.headers = actualHeaders;
+
+        entry.headersMatch =
+          expectedHeaders.length > 0 &&
+          expectedHeaders.every((h, i) => actualHeaders[i] === h);
+      }
+
+    } catch (err) {
+      entry.error = err.message;
+    }
+
+    report.sheets.push(entry);
+  });
+
+  // 4) ¿El correo actual corresponde a alguien activo en Personal?
+  try {
+    const person = findPersonByEmail(report.sessionEmail);
+    report.userRegistered = !!person;
+  } catch (err) {
+    report.userRegisteredError = err.message;
+  }
+
+  return report;
+}
+
+
+/* =====================================================
+ *  PERSONAL
+ * ===================================================== */
+
+/**
+ * Mapea una fila cruda de Personal a un objeto de
+ * presentación usado en el front-end.
+ */
+function mapPerson(person) {
+
+  return {
+    id: person.ID_Person,
+    name: person.Name,
+    email: person.Email,
+    department: person.Department || 'Sin departamento',
+    photoUrl: person.Photo_URL || CONFIG.DEFAULT_PHOTO,
+    jobTitle: person.Job_Title || '',
+    active: isActiveValue(person.Active),
+    isAdmin: isTruthy(person.Is_Admin),
+    recognitions: Number(person.Contador_Felicitaciones) || 0
+  };
+}
+
+
+/**
+ * Todas las personas ACTIVAS del sistema, sin filtrar por
+ * cantidad de reconocimientos. Se usa para el flujo de
+ * "Nueva felicitación", donde debe poder reconocerse a
+ * cualquier persona activa, incluso con 0 reconocimientos.
+ */
+function getPeople() {
+
+  return readSheetAsObjects(CONFIG.SHEETS.PERSONAL)
+    .map(mapPerson)
+    .filter(person => person.active);
+}
+
+
+/**
+ * Personas activas que YA tienen 1 o más reconocimientos.
+ * Se usa para la galería principal / vitrina del sistema,
+ * según regla de negocio del cliente.
+ */
+function getRecognizedPeople() {
+
+  return getPeople().filter(person => person.recognitions > 0);
+}
+
+
+/**
+ * Lista de departamentos únicos (a partir del personal
+ * activo), ordenada alfabéticamente. Se usa para el
+ * filtro de departamento en la interfaz.
+ */
+function getDepartments() {
+
+  const departments = getPeople()
+    .map(p => p.department)
+    .filter(Boolean);
+
+  return Array.from(new Set(departments)).sort();
+}
+
+
+/**
+ * Busca una persona ACTIVA por ID.
+ */
+function findPersonById(id) {
+
+  return getPeople().find(p => String(p.id) === String(id));
+}
+
+
+/**
+ * Busca una persona ACTIVA por correo (comparación
+ * insensible a mayúsculas/minúsculas).
+ */
+function findPersonByEmail(email) {
+
+  if (!email) return null;
+
+  const normalized = String(email).trim().toLowerCase();
+
+  return getPeople().find(
+    p => String(p.email).trim().toLowerCase() === normalized
+  );
+}
+
+
+/* =====================================================
+ *  SESIÓN / CONTROL DE ACCESO
+ * ===================================================== */
+
+/**
+ * Devuelve el correo de la persona que tiene la sesión
+ * activa en el navegador (requiere que el despliegue use
+ * "Ejecutar como: quien accede a la aplicación web").
+ */
+function getSessionEmail() {
+
+  try {
+    return Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+
+/**
+ * Determina quién es el usuario actual y si está dado de
+ * alta en el sistema. El front-end usa esto para:
+ *  - Mostrar "Reconociendo como: [Nombre]".
+ *  - Habilitar o bloquear la creación de felicitaciones.
+ *  - Mostrar u ocultar la pestaña de Administración.
+ */
+function getCurrentUser() {
+
+  const email = getSessionEmail();
+  const person = findPersonByEmail(email);
+
+  if (!person) {
+    return {
+      email: email,
+      registered: false,
+      isAdmin: false
+    };
+  }
+
+  return {
+    id: person.id,
+    name: person.name,
+    email: person.email,
+    department: person.department,
+    photoUrl: person.photoUrl,
+    registered: true,
+    isAdmin: person.isAdmin
+  };
+}
+
+
+/**
+ * Lanza un error si el usuario actual no es administrador.
+ * Se usa como guardia al inicio de cada función de admin.
+ */
+function requireAdmin() {
+
+  const user = getCurrentUser();
+
+  if (!user.registered || !user.isAdmin) {
+    throw new Error(
+      'No tienes permisos de administrador para realizar esta acción.'
+    );
+  }
+
+  return user;
+}
+
+
+/* =====================================================
+ *  CATEGORÍAS Y MENSAJES SUGERIDOS
+ * ===================================================== */
+
+function getCategories() {
+
+  return readSheetAsObjects(CONFIG.SHEETS.CATEGORIES)
+    .filter(item => String(item.Active).toUpperCase() !== 'FALSE')
+    .map(item => ({
+      id: item.Category_ID,
+      name: item.Category,
+      emoji: item.Emoji || '⭐',
+      description: item.Description || ''
+    }));
+}
+
+
+function getMessages(categoryId) {
+
+  return readSheetAsObjects(CONFIG.SHEETS.MESSAGES)
+    .filter(item => {
+
+      const active = String(item.Active).toUpperCase() !== 'FALSE';
+
+      const categoryMatch =
+        !categoryId || String(item.Category_ID) === String(categoryId);
+
+      return active && categoryMatch;
+    })
+    .map(item => ({
+      id: item.Message_ID,
+      message: item.Message
+    }));
+}
+
+
+/* =====================================================
+ *  RECONOCIMIENTOS - LECTURA
+ * ===================================================== */
+
+/**
+ * Todos los reconocimientos, en formato de presentación,
+ * ordenados del más reciente al más antiguo.
+ */
+function getAllRecognitions() {
+
+  return readSheetAsObjects(CONFIG.SHEETS.RECOGNITIONS)
+    .map(item => ({
+      id: item.Recognition_ID,
+      timestamp: item.Timestamp,
+      fromId: item.From_ID,
+      fromName: item.From_Name,
+      toId: item.To_ID,
+      toName: item.To_Name,
+      department: item.Department,
+      categoryId: item.Category_ID,
+      category: item.Category,
+      message: item.Message
+    }))
+    .reverse();
+}
+
+
+function getRecentRecognitions(limit = 10) {
+
+  return getAllRecognitions().slice(0, limit);
+}
+
+
+/**
+ * Obtiene el detalle de un reconocimiento específico por
+ * su ID. Se usa para la vista de "felicitación individual"
+ * (por ejemplo, al abrir el enlace del correo).
+ */
+function getRecognitionById(id) {
+
+  if (!id) return null;
+
+  const recognition = getAllRecognitions().find(
+    r => String(r.id) === String(id)
+  );
+
+  if (!recognition) return null;
+
+  const person = findPersonById(recognition.toId);
+  const category = getCategories().find(
+    c => String(c.id) === String(recognition.categoryId)
+  );
+
+  return Object.assign({}, recognition, {
+    toPhotoUrl: person ? person.photoUrl : CONFIG.DEFAULT_PHOTO,
+    emoji: category ? category.emoji : '⭐'
+  });
+}
+
+
+/* =====================================================
+ *  RECONOCIMIENTOS - ESTADÍSTICAS / RANKINGS
+ * ===================================================== */
+
+function getStats() {
+
+  const recognitions = getAllRecognitions();
+  const people = getRecognizedPeople();
+  const now = new Date();
+
+  const thisMonth = recognitions.filter(item => {
+
+    const date = new Date(item.timestamp);
+
+    return (
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+
+  }).length;
+
+  return {
+    total: recognitions.length,
+    thisMonth: thisMonth,
+    peopleRecognized: people.length
+  };
+}
+
+
+/**
+ * Top N de personas con más reconocimientos (lifetime).
+ * Solo considera personas activas con 1 o más.
+ */
+function getTopPeople(limit) {
+
+  return getRecognizedPeople()
+    .sort((a, b) => b.recognitions - a.recognitions)
+    .slice(0, limit || CONFIG.TOP_PEOPLE_LIMIT);
+}
+
+
+/**
+ * Top N de departamentos con más reconocimientos recibidos.
+ * Se calcula a partir del campo Department guardado en cada
+ * reconocimiento (así el ranking histórico no cambia aunque
+ * una persona cambie de departamento más adelante).
+ */
+function getTopDepartments(limit) {
+
+  const recognitions = getAllRecognitions();
+  const counts = {};
+
+  recognitions.forEach(item => {
+
+    const dept = item.department || 'Sin departamento';
+    counts[dept] = (counts[dept] || 0) + 1;
+  });
+
+  return Object.keys(counts)
+    .map(department => ({
+      department: department,
+      count: counts[department]
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit || CONFIG.TOP_DEPARTMENTS_LIMIT);
+}
+
+
+/* =====================================================
+ *  PUNTO DE ENTRADA DE DATOS PARA EL FRONT-END
+ * ===================================================== */
+
+/**
+ * Empaqueta todo lo que la interfaz necesita para pintar
+ * el dashboard en una sola llamada (menos round-trips).
+ *
+ * IMPORTANTE: esta función NUNCA debe lanzar una excepción sin control.
+ * Antes, si CUALQUIERA de las piezas (getPeople, getStats, etc.) fallaba,
+ * toda la función truena y el front-end se queda con los "Cargando…"
+ * girando para siempre en algunos navegadores, porque la excepción no
+ * siempre viaja limpia a través del puente sandbox de Apps Script.
+ * Por eso cada pieza se ejecuta de forma aislada con safeSection(): si
+ * una falla, se registra en los Registros de Ejecución (Ver > Registros
+ * de ejecución) y se devuelve un valor por defecto en su lugar, para que
+ * el resto del panel sí cargue.
+ */
+function getAppData() {
+
+  function safeSection(label, fn, fallback) {
+    try {
+      return fn();
+    } catch (err) {
+      console.error('getAppData() → error en "' + label + '": ' + err + (err && err.stack ? ('\n' + err.stack) : ''));
+      return fallback;
+    }
+  }
+
+  return {
+    appName: CONFIG.APP_NAME,
+    tagline: CONFIG.APP_TAGLINE,
+    currentUser: safeSection('getCurrentUser', getCurrentUser, { email: '', registered: false, isAdmin: false }),
+    people: safeSection('getPeople', getPeople, []),                     // modal "Nueva felicitación" (todos, incl. 0)
+    recognizedPeople: safeSection('getRecognizedPeople', getRecognizedPeople, []), // galería principal (solo >=1)
+    departments: safeSection('getDepartments', getDepartments, []),
+    categories: safeSection('getCategories', getCategories, []),
+    recentRecognitions: safeSection('getRecentRecognitions', function () { return getRecentRecognitions(10); }, []),
+    topPeople: safeSection('getTopPeople', function () { return getTopPeople(); }, []),
+    topDepartments: safeSection('getTopDepartments', function () { return getTopDepartments(); }, []),
+    stats: safeSection('getStats', getStats, { total: 0, thisMonth: 0, peopleRecognized: 0 }),
+    // Bandera de diagnóstico rápido: si el front-end la recibe en `false`,
+    // sabemos que al menos una sección falló aunque el resto se pintó bien.
+    serverTimestamp: new Date().toISOString()
+  };
+}
+
+
+/* =====================================================
+ *  RECONOCIMIENTOS - CREACIÓN
+ * ===================================================== */
+
+/**
+ * Validaciones de negocio para un nuevo reconocimiento.
+ */
+function validateRecognition(data, currentUser, person, category) {
+
+  if (!data) {
+    throw new Error('No se recibieron datos.');
+  }
+
+  if (!currentUser.registered) {
+    throw new Error(
+      'Tu cuenta no está dada de alta en el sistema. Contacta a un administrador.'
+    );
+  }
+
+  if (!data.personId) {
+    throw new Error('Debes seleccionar una persona.');
+  }
+
+  if (!person) {
+    throw new Error('La persona seleccionada no existe o no está activa.');
+  }
+
+  if (String(person.id) === String(currentUser.id)) {
+    throw new Error('No puedes reconocerte a ti mismo(a).');
+  }
+
+  if (!data.categoryId) {
+    throw new Error('Debes seleccionar una categoría.');
+  }
+
+  if (!category) {
+    throw new Error('La categoría seleccionada no existe.');
+  }
+
+  if (!data.message || !data.message.trim()) {
+    throw new Error('Debes escribir un mensaje.');
+  }
+
+  if (data.message.trim().length > CONFIG.MAX_MESSAGE_LENGTH) {
+    throw new Error(
+      `El mensaje no puede superar ${CONFIG.MAX_MESSAGE_LENGTH} caracteres.`
+    );
+  }
+}
+
+
+/**
+ * Crea un nuevo reconocimiento: valida, escribe la fila,
+ * actualiza el contador del destinatario y envía el correo
+ * de notificación. Protegido con LockService para evitar
+ * condiciones de carrera si dos personas felicitan a la vez.
+ */
+function createRecognition(data) {
+
+  const currentUser = getCurrentUser();
+  const person = data && data.personId ? findPersonById(data.personId) : null;
+  const category = data && data.categoryId
+    ? getCategories().find(c => String(c.id) === String(data.categoryId))
+    : null;
+
+  validateRecognition(data, currentUser, person, category);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+
+    const sheet = getSheet(CONFIG.SHEETS.RECOGNITIONS);
+    const recognitionId = generateRecognitionId();
+    const now = new Date();
+    const message = data.message.trim();
+
+    sheet.appendRow([
+      recognitionId,
+      now,
+      currentUser.id,
+      currentUser.email,
+      currentUser.name,
+      person.id,
+      person.name,
+      person.department,
+      category.id,
+      category.name,
+      message
+    ]);
+
+    updatePersonCounter(person.id);
+
+    // El correo nunca debe tumbar la creación del
+    // reconocimiento si falla (cuota, permisos, etc.).
+    try {
+      sendRecognitionEmail(person, currentUser.name, category, message, recognitionId);
+    } catch (mailError) {
+      console.error('No se pudo enviar el correo de notificación: ' + mailError);
+    }
+
+    return {
+      success: true,
+      recognitionId: recognitionId,
+      personName: person.name,
+      category: category.name,
+      emoji: category.emoji,
+      message: message,
+      fromName: currentUser.name,
+      timestamp: Utilities.formatDate(
+        now, Session.getScriptTimeZone(), CONFIG.DATE_FORMAT
+      )
+    };
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+/**
+ * Actualiza el contador de felicitaciones del destinatario.
+ */
+function updatePersonCounter(personId) {
+
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const idColumn = headers.indexOf('ID_Person');
+  const counterColumn = headers.indexOf('Contador_Felicitaciones');
+
+  if (idColumn === -1 || counterColumn === -1) return;
+
+  for (let i = 1; i < data.length; i++) {
+
+    if (String(data[i][idColumn]) === String(personId)) {
+
+      const current = Number(data[i][counterColumn]) || 0;
+      sheet.getRange(i + 1, counterColumn + 1).setValue(current + 1);
+      return;
+    }
+  }
+}
+
+
+/**
+ * Genera un ID único y legible para un reconocimiento.
+ */
+function generateRecognitionId() {
+
+  const timestamp = new Date().getTime();
+  const random = Math.floor(Math.random() * 999);
+
+  return `REC-${timestamp}-${random}`;
+}
+
+
+/* =====================================================
+ *  NOTIFICACIONES POR CORREO
+ * ===================================================== */
+
+/**
+ * Envía al destinatario el correo de "¡Has recibido un
+ * reconocimiento!" con un botón que lo lleva de regreso al
+ * sistema para ver su felicitación.
+ */
+function sendRecognitionEmail(person, fromName, category, message, recognitionId) {
+
+  if (!person.email) return;
+
+  const appUrl = ScriptApp.getService().getUrl();
+  const viewUrl = appUrl ? `${appUrl}?id=${encodeURIComponent(recognitionId)}` : appUrl;
+
+  const subject = '🎉 ¡Has recibido un reconocimiento!';
+
+  const htmlBody = buildRecognitionEmailHtml({
+    personName: person.name,
+    fromName: fromName,
+    categoryName: category.name,
+    categoryEmoji: category.emoji,
+    message: message,
+    viewUrl: viewUrl
+  });
+
+  const plainBody =
+    `Hola ${person.name},\n\n` +
+    `¡Has recibido un reconocimiento! 🎉\n\n` +
+    `${fromName} te reconoció por: ${category.emoji} ${category.name}\n` +
+    `"${message}"\n\n` +
+    `¡Gracias por hacer la diferencia!` +
+    (viewUrl ? `\n\nVer tu felicitación: ${viewUrl}` : '');
+
+  MailApp.sendEmail({
+    to: person.email,
+    subject: subject,
+    body: plainBody,
+    htmlBody: htmlBody,
+    name: CONFIG.APP_NAME
+  });
+}
+
+
+/**
+ * Construye el HTML del correo de notificación usando la
+ * paleta corporativa del sistema.
+ */
+function buildRecognitionEmailHtml(data) {
+
+  const buttonHtml = data.viewUrl
+    ? `<a href="${data.viewUrl}"
+         style="display:inline-block;margin-top:22px;padding:14px 28px;
+                background:${CONFIG.COLORS.PRIMARY};color:#ffffff;
+                text-decoration:none;border-radius:10px;font-weight:bold;
+                font-family:Arial, sans-serif;">
+         Ver mi felicitación
+       </a>`
+    : '';
+
+  return `
+    <div style="font-family:Arial, sans-serif;background:${CONFIG.COLORS.BACKGROUND};
+                padding:32px;">
+      <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:16px;
+                  overflow:hidden;border:1px solid #ececec;">
+
+        <div style="background:${CONFIG.COLORS.DARK};padding:24px 32px;color:#ffffff;">
+          <span style="font-size:22px;font-weight:bold;">🎉 Kudos</span>
+        </div>
+
+        <div style="padding:32px;color:${CONFIG.COLORS.DARK};">
+
+          <p style="font-size:16px;">Hola <strong>${data.personName}</strong>,</p>
+
+          <p style="font-size:16px;">¡Has recibido un reconocimiento! 🎉</p>
+
+          <p style="font-size:15px;">
+            <strong>${data.fromName}</strong> te reconoció por:
+            <strong>${data.categoryEmoji} ${data.categoryName}</strong>
+          </p>
+
+          <blockquote style="margin:18px 0;padding:16px 18px;border-left:4px solid ${CONFIG.COLORS.PRIMARY};
+                              background:${CONFIG.COLORS.BACKGROUND};border-radius:8px;font-style:italic;">
+            "${data.message}"
+          </blockquote>
+
+          <p style="font-size:15px;">¡Gracias por hacer la diferencia!</p>
+
+          ${buttonHtml}
+
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+/* =====================================================
+ *  ADMINISTRACIÓN DE PERSONAL (alta / baja)
+ * ===================================================== */
+
+/**
+ * Lista completa de personal (incluye inactivos), solo
+ * para la pestaña de administración.
+ */
+function adminListPeople() {
+
+  requireAdmin();
+
+  return readSheetAsObjects(CONFIG.SHEETS.PERSONAL).map(mapPerson);
+}
+
+
+/**
+ * Da de alta a una nueva persona en el sistema.
+ */
+function adminAddPerson(data) {
+
+  requireAdmin();
+
+  if (!data || !data.name || !data.name.trim()) {
+    throw new Error('El nombre es obligatorio.');
+  }
+
+  if (!data.email || !data.email.trim()) {
+    throw new Error('El correo es obligatorio.');
+  }
+
+  if (!data.department || !data.department.trim()) {
+    throw new Error('El departamento es obligatorio.');
+  }
+
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+
+  const idColumn = headers.indexOf('ID_Person');
+
+  const existingEmails = values.map(row =>
+    String(row[headers.indexOf('Email')]).trim().toLowerCase()
+  );
+
+  if (existingEmails.indexOf(data.email.trim().toLowerCase()) !== -1) {
+    throw new Error('Ya existe una persona registrada con ese correo.');
+  }
+
+  const nextId = values.reduce(
+    (max, row) => Math.max(max, Number(row[idColumn]) || 0), 0
+  ) + 1;
+
+  sheet.appendRow([
+    nextId,
+    data.name.trim(),
+    data.email.trim(),
+    data.department.trim(),
+    data.photoUrl ? data.photoUrl.trim() : '',
+    data.jobTitle ? data.jobTitle.trim() : '',
+    true,
+    0,
+    !!data.isAdmin
+  ]);
+
+  return { success: true, id: nextId };
+}
+
+
+/**
+ * Actualiza los datos editables de una persona existente.
+ */
+function adminUpdatePerson(id, data) {
+
+  requireAdmin();
+
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+
+  const idColumn = headers.indexOf('ID_Person');
+  const rowIndex = values.findIndex(
+    (row, i) => i > 0 && String(row[idColumn]) === String(id)
+  );
+
+  if (rowIndex === -1) {
+    throw new Error('No se encontró a la persona indicada.');
+  }
+
+  const fieldMap = {
+    name: 'Name',
+    email: 'Email',
+    department: 'Department',
+    photoUrl: 'Photo_URL',
+    jobTitle: 'Job_Title',
+    isAdmin: 'Is_Admin'
+  };
+
+  Object.keys(fieldMap).forEach(key => {
+
+    if (data[key] === undefined) return;
+
+    const col = headers.indexOf(fieldMap[key]);
+    if (col === -1) return;
+
+    sheet.getRange(rowIndex + 1, col + 1).setValue(data[key]);
+  });
+
+  return { success: true };
+}
+
+
+/**
+ * Da de baja (o reactiva) a una persona. Se usa un
+ * borrado lógico (Active = false) para conservar el
+ * historial de reconocimientos ya otorgados/recibidos.
+ */
+function adminSetActive(id, active) {
+
+  requireAdmin();
+
+  const sheet = getSheet(CONFIG.SHEETS.PERSONAL);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+
+  const idColumn = headers.indexOf('ID_Person');
+  const activeColumn = headers.indexOf('Active');
+
+  const rowIndex = values.findIndex(
+    (row, i) => i > 0 && String(row[idColumn]) === String(id)
+  );
+
+  if (rowIndex === -1) {
+    throw new Error('No se encontró a la persona indicada.');
+  }
+
+  sheet.getRange(rowIndex + 1, activeColumn + 1).setValue(!!active);
+
+  return { success: true };
+}
